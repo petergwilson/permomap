@@ -3,6 +3,8 @@
 
 Online mapping system and app to record and display information about community managed huts and tracks in New Zealand. 
 
+Currently running in a limited, alpha-trial mode at https://www.wilsonenv.nz/permomap/. Will migrate to another URL once fully operational and tested. 
+
 This project contains a number of components to build a culture and system for reporting on, managing, and contributing to the upkeep of backcountry huts, routes, and tracks across New Zealand which receive minimal or no maintenance by the Department of Conservation, and/or land managing agencies. It is primarily geospatial, and a companion project to https://www.remotehuts.co.nz/.
 
 Software license (GPL) vested in the Permolat Trust of New Zealand Inc. 
