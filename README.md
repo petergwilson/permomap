@@ -7,7 +7,8 @@ This project contains a number of components to build a culture and system for r
 
 Software license (GPL) vested in the Permolat Trust of New Zealand Inc. 
 
-ToDo in todo.md
+TODO in https://github.com/petergwilson/permomap/edit/main/TODO.md
+
 Instructions on understanding/training in the geospatial software stack that this application uses are to come. Meanwhile, if you want to learn and contribute, email petergwilson@gmail.com directly. 
 
 ## culture
