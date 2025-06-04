@@ -1,0 +1,28 @@
+{
+  "name": "permomap",
+  "version": "1.0.0",
+  "description": "Permolat Mapping System",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.27.2",
+    "@babel/core": "^7.27.3",
+    "sass-embedded": "^1.89.0",
+    "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "body-parser": "^2.2.0",
+    "express": "^5.1.0",
+    "jsts": "^2.12.1",
+    "multer": "^2.0.0",
+    "ol": "latest",
+    "oltb": "^3.4.1",
+    "pg": "^8.16.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  }
+}
