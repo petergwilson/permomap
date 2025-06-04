@@ -20,27 +20,27 @@ A core group of maintainers accept commits, and also (currently) maintain the se
 
 ### A service to the backcountry community
 Design philosophy is:
-*Expand the group of track-cutters, track maintainers, interested people, trampers and hunters that comment and review on recreation and conservation work
-*At all times, maintain the confidence of those that have gone before, and are doing this work with proven, manual systems. If in doubt, seek their guidance. Technical decisions must implement a guiding philosophy.
-*Limited to community managed "permolat" tracks at this point. 
-*Fully open, but different levels of permissions based on user status. Editors of content are recorded. 
-*All content recorded - essentially a spatial github, no deletions allowed. Historical edits form part of an archive of effort in the backcountry
-*All contributions, software, hardware, content, and physical (i.e. track cutting and hut work) are acknowledged and attributed where people want them acknowledged. Party members are to be acknowledged as well if they want acknowledgement, not just the contributor/editor. 
-*Peer review of content built into system design to encourage it at all levels. 
-*Sustainability - ensure information reuse and avoid technical obsolesecene. An example is automatically saving spatial and non-spatial information to a spreadsheet
+* Expand the group of track-cutters, track maintainers, interested people, trampers and hunters that comment and review on recreation and conservation work
+* At all times, maintain the confidence of those that have gone before, and are doing this work with proven, manual systems. If in doubt, seek their guidance. Technical decisions must implement a guiding philosophy.
+* Limited to community managed "permolat" tracks at this point. 
+* Fully open, but different levels of permissions based on user status. Editors of content are recorded. 
+* All content recorded - essentially a spatial github, no deletions allowed. Historical edits form part of an archive of effort in the backcountry
+* All contributions, software, hardware, content, and physical (i.e. track cutting and hut work) are acknowledged and attributed where people want them acknowledged. Party members are to be acknowledged as well if they want acknowledgement, not just the contributor/editor. 
+* Peer review of content built into system design to encourage it at all levels. 
+* Sustainability - ensure information reuse and avoid technical obsolesecene. An example is automatically saving spatial and non-spatial information to a spreadsheet
 
 ## System
 
 ### Backend 
 
 Built with Javascript, running on NodeJS, with Postgresql running Postgis, using pg_tileserv and pg_featureserv. Links to these projects are below:
-*https://www.postgresql.org/, https://www.postgis.net/, https://nodejs.org/en/, https://github.com/CrunchyData/pg_tileserv, https://github.com/CrunchyData/pg_featureserv
-*Currently running on Azure VM, hosted by Peter Wilson
-*Schema information is available in backend/
-*Server code/instructions/setup also in backend/
+* https://www.postgresql.org/, https://www.postgis.net/, https://nodejs.org/en/, https://github.com/CrunchyData/pg_tileserv, https://github.com/CrunchyData/pg_featureserv
+* Currently running on Azure VM, hosted by Peter Wilson
+* Schema information is available in backend/
+* Server code/instructions/setup also in backend/
 
 ### Frontend 
-*HTML/Javascript, Primarily using the openlayers library. https://openlayers.org/
-*Web services running on Apache2 webserver, running on Azure VM, hosted by Peter Wilson
-*HTML/Javascript code in /frontend
+* HTML/Javascript, Primarily using the openlayers library. https://openlayers.org/
+* Web services running on Apache2 webserver, running on Azure VM, hosted by Peter Wilson
+* HTML/Javascript code in /frontend
 
