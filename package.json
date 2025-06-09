@@ -30,6 +30,7 @@
     "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
     "express-session": "^1.18.1",
+    "ice": "^3.7.100",
     "nytimes-ice": "^0.6.3",
     "ol": "latest",
     "pg": "^8.16.0"
