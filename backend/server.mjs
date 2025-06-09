@@ -1,32 +1,5 @@
-/*
-*Permomap Server module
-*Written initially by Peter Wilson, 2025
-*Uses javascript express and pg modules
-*Middleware routers are for the various api calls from the client application, putting together the
-*SQL queries for the database based on the JSON/GeoJSON information sent by the client. Responses back
-*to the client are also in GeoJSON.
-*Session information
-*WRITE THIS ONCE FINISHED
-*/
-
-// Import OTEL first to ensure proper instrumentation
-import './otel.mjs';
-
 import express from 'express';
 import { Pool } from 'pg';
-import session from 'express-session';
-import connectPgSimple from 'connect-pg-simple';
-// import bcrypt from 'bcryptjs';
-
-import cookieParser from 'cookie-parser';
-
-// Import OpenTelemetry API for custom logging
-import sdkNode from '@opentelemetry/api';
-const {trace} = sdkNode
-
-// Create a logger instance
-const tracer = trace.getTracer('permomap-server', '1.0.0');
-// import cors from 'cors';
 //import multer from 'multer';
 
 const app = express();
@@ -41,180 +14,27 @@ const DATABASE_NAME = process.env.DATABASE_NAME || 'gis';
 //FOR INSTANCE, production server database name is "postgres", testing version "gis"
 //FIX THIS OR BRING IN DEPLOYMENT BUILD LOGIC
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    `postgresql://postgres:postgres@localhost:5432/${DATABASE_NAME}`,
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/gis',
 });
 
-//Session and cookie variables
-
-//pgSession (postgresql session/state store)
-app.use(cookieParser());
-
-const PgSessionStore = connectPgSimple(session);
-
-const store = new PgSessionStore({
-  pool: pool,
-  tableName: 'permomap_session', //pg table name for session information
-  createTableIfMissing: true, // Automatically create the session table if it doesn't exist
-});
-
-const sessionMiddleware = session({
-  secret: 'ForestServiceTracksAreBest', //hash completion secret PROBABLY SHOULDN'T BE HERE,
-  store: store,
-  resave: false,
-  saveUninitialized: false,
-  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }, // 30 days
-});
-
-//CORS for all routes
-//Also this is CORS for all origins
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With,Content-Type, Accept'
-  );
-  next();
-});
-
-//Session middleware
-app.use(sessionMiddleware);
 
 // Middleware to parse JSON bodies
 app.use(express.json({ type: 'application/json' }));
 
+// Use multer to handle multi-part form data
+// NOT USING AT PRESENT
+//const upload=multer({storage: multer.memoryStorage()});
+
+//Modify/upload new geometry
 /*
- *Login
- */
+*This is handled carefully, nothing is actually deleted, 
+*MIME multipart/form-data type
+*A new row is created (as with the other updates, with the new geometry added)
+*For old rows, set live=false
+*Can delete all the way back to the starting layer, cannot delete beyond this. 
+*IT DOES MEAN NEEDING SOME BOUNDING BOX APPROACH BASED ON MAP WINDOW TO IDENTIFY DELETED/HIDDEN LAYERS
+*/
 
-app.post('/api/login', async (req, res) => {
-  const startTime = Date.now();
-  const requestId = `login_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
-  // Create a custom span for the login operation
-  const span = tracer.startSpan('login_operation', {
-    attributes: {
-      'http.method': 'POST',
-      'http.route': '/api/login',
-      'request.id': requestId,
-      'user.attempted_username': req.body.username || 'unknown'
-    }
-  });
-
-  try {
-    // Log the start of login attempt
-    console.log(JSON.stringify(req.body));
-
-    // Add span event for database query start
-    span.addEvent('database_query_start', {
-      'query.type': 'user_lookup',
-      'query.table': 'permomap_users'
-    });
-
-    //Get info from permomap_users table
-    const user = await pool.query(
-      'SELECT username,password,role,userid FROM permomap_users WHERE username = $1',
-      [req.body.username]
-    );
-
-    // Add span event for database query completion
-    span.addEvent('database_query_complete', {
-      'query.result_count': user.rows.length,
-      'query.duration_ms': Date.now() - startTime
-    });
-
-    //Check to see if passwords match
-    if (user.rows.length > 0 && req.body.password == user.rows[0].password) {
-      //USER TABLE WILL NEED A USERID-NOT SAME AS USERNAME BUT COULD BE
-      //Sets the session userId and username to that saved in the database
-      req.session.userid = user.rows[0].userid;
-      req.session.username = user.rows[0].username;
-      req.session.role = user.rows[0].role;
-
-      const data = {
-        ok: true,
-        message: 'Login successful',
-        username: user.rows[0].username,
-        userid: user.rows[0].userid,
-        role: user.rows[0].role,
-        status: 200,
-      };
-
-      // Add span attributes for successful login
-      span.setAttributes({
-        'login.status': 'success',
-        'user.username': user.rows[0].username,
-        'user.role': user.rows[0].role,
-        'response.status_code': 200
-      });
-
-      span.addEvent('login_success', {
-        'user.username': user.rows[0].username,
-        'user.role': user.rows[0].role
-      });
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(data));
-    } else {
-      // Add span attributes for failed login
-      span.setAttributes({
-        'login.status': 'failed',
-        'login.failure_reason': 'invalid_credentials',
-        'response.status_code': 401,
-        'error': true
-      });
-
-      span.addEvent('login_failure', {
-        'failure_reason': 'invalid_credentials',
-        'user_found': user.rows.length > 0 ? 'true' : 'false'
-      });
-
-      res.status(401).json({ ok: false, message: 'Invalid credentials' });
-    }
-  } catch (error) {
-    // Log error during login process
-    // Record error in span
-    span.recordException(error);
-    span.setAttributes({
-      'login.status': 'error',
-      'error': true,
-      'error.message': error.message,
-      'response.status_code': 500
-    });
-
-    res.status(500).json({ ok: false, message: 'Internal server error' });
-  } finally {
-    // End the span
-    span.end();
-  }
-});
-
-app.post('/api/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ ok: false, message: 'Could not log out' });
-    }
-    res.status(200).json({ ok: true, message: 'Logged out successfully' });
-  });
-});
-
-// Example route to get session data
-app.get('/api/get_session', (req, res) => {
-  if (req.session.username) {
-    res
-      .status(200)
-      .json({
-        ok: true,
-        username: `${req.session.username}`,
-        userid: req.session.userid,
-        role: req.session.role,
-      });
-  } else {
-    res.status(401).json({ ok: false, message: 'Invalid credentials' });
-  }
-});
 
 // Route to handle GeoJSON data
 // Main saving logic
@@ -243,11 +63,12 @@ app.post('/api/save', async (req, res) => {
 
     //result_total=result1.rows; // Query result to object
 
-    //Makes a new row entry with the updated features and geometry
-    //
+          //Create the new object with the new values
+          //NEED TO WORK OUT HOW TO HANDLE NULLS FOR next_id
+          //This should move over the geometry regardless of if it has been edited or not
 
-    sql2 = `WITH feat AS (SELECT '${JSON.stringify(req.body)}'::json as data)
-          INSERT INTO permolat_tracks (geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history,status)
+          sql2=`WITH feat AS (SELECT '${JSON.stringify(req.body)}'::json as data)
+          INSERT INTO permolat_tracks (geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history,live)
           SELECT ST_SetSRID(ST_GeomFromGeoJSON(data->>'geometry'),3857),
           ${new_id}::int,
           data->'properties'->>'trackname',
@@ -271,54 +92,52 @@ app.post('/api/save', async (req, res) => {
 
     //result_total=result_total+result2.rows; // Query result to object
 
-    //Set the old object live=false, and next id as the object above
-    //OLD LOGIC PRE MODERATION IS TO SET THE OLD ONE AS LIVE=FALSE IMMEDIATELY
-    //MODERATION LOGIC WILL HAVE THIS SOMEWHERE ELSE
+          
+          //Set the old object live=false, and next id as the object above
+          sql3=`WITH feat AS (SELECT '${JSON.stringify(req.body)}'::json as data)
+          UPDATE permolat_tracks SET live=false, next_id=${new_id}
+          FROM (SELECT (data->'properties'->>'id')::int old_id FROM feat) sub_query 
+          WHERE id=sub_query.old_id; /*END SAVE FEATURES*/`;
 
-    //sql3=`WITH feat AS (SELECT '${JSON.stringify(req.body)}'::json as data)
-    //UPDATE permolat_tracks SET live=false, next_id=${new_id}
-    //FROM (SELECT (data->'properties'->>'id')::int old_id FROM feat) sub_query
-    //WHERE id=sub_query.old_id; /*END SAVE FEATURES*/`;
+          console.log("sql3: "+sql3);
 
-    //console.log("sql3: "+sql3);
+          const client3 = await pool.connect();
 
-    const client3 = await pool.connect();
-
-    const result = await client3.query(sql2);
+          const result = await client3.query(sql2+sql3);
 
     client3.release(); // release the client back to the pool
 
-    //result_total=result_total+result3.rows; // Query result to object
-
-    res.status(201).json({ success: true, id: result.command });
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    res.status(500).json({ error: 'Database error' + error });
-  }
-});
-
-//ROLLBACKS AND ROLLFORWARDS MAY BE MODERATOR ONLY FUNCTIONS.
-
-app.post('/api/rollback', async (req, res) => {
-  var sql2, sql3, sql4;
-  sql2 = sql3 = sql4 = '';
+          //result_total=result_total+result3.rows; // Query result to object
+          
+          res.status(201).json({ success: true,id: result.command});
+          
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            res.status(500).json({ error: 'Database error'+error });
+        }
+    });
+          
+         
+app.post('/api/rollback', async(req, res) => {
+  var sql2,sql3,sql4;
+  sql2=sql3=sql4="";
 
   const geojsonData = req.body;
 
   console.log(req.body.properties['history']);
 
   try {
-    //Set the status flag on the next parcel to old
-    sql2 = `/*START ROLLBACK*/ UPDATE permolat_tracks SET status='old' WHERE id=${req.body.properties.id};`;
-    //Set the status flag on the previous parcel to live
-    //NEED SOMETHING ON HISTORY here. Not the creation, may need to record the history
-    //ANY HISTORY function needs to read across all things in that area - can't be linked just to the layer because these can change
-    //Could use a bounding box?
-    sql3 = `UPDATE permolat_tracks SET status='live' WHERE id=${req.body.properties.prev_id};`;
-
-    //Record some history
-    //Get date
-    const now = new Date();
+      //Set the live flag on the current parcel to false
+      sql2=`/*START ROLLBACK*/ UPDATE permolat_tracks SET live=false WHERE id=${req.body.properties.id};`;
+      //Set the live flag on the previous parcel in the chain to true
+      //NEED SOMETHING ON HISTORY here. Not the creation, may need to record the history
+      //ANY HISTORY function needs to read across all things in that area - can't be linked just to the layer because these can change
+      //Could use a bounding box?
+      sql3=`UPDATE permolat_tracks SET live=true WHERE id=${req.body.properties.prev_id};`;
+      
+      //Record some history
+      //Get date
+      const now = new Date();
 
     sql4 = `UPDATE permolat_tracks SET history=history || '${
       req.body.name + ':' + req.body.email
@@ -344,64 +163,25 @@ app.post('/api/rollback', async (req, res) => {
   }
 });
 
-//ROLL FORWARD
 
-app.post('/api/rollforward', async (req, res) => {
-  var sql2, sql3, sql4;
-  sql2 = sql3 = sql4 = '';
-
-  try {
-    //Set the flag on current parcel to old
-    sql2 = `/*START ROLLFORWARD*/ UPDATE permolat_tracks SET status='old' WHERE id=${req.body.properties.id};`;
-    //Set the flag on the next parcel in the chain to live
-    //NEED SOMETHING ON HISTORY here. Not the creation, may need to record the history
-    //ANY HISTORY function needs to read across all things in that area - can't be linked just to the layer because these can change
-    //Could use a bounding box?
-    sql3 = `UPDATE permolat_tracks SET status='live' WHERE id=${req.body.properties.next_id};`;
-    //Record some history
-    //Get date
-    const now = new Date();
-    sql4 = `UPDATE permolat_tracks SET history=history || '${
-      req.body.name + ':' + req.body.email
-    } returned this to live on ${now.toLocaleString()}' WHERE id=${
-      req.body.properties.next_id
-    };
-  /*END ROLLFORWARD*/`;
-
-    //sql_start="INSERT INTO parcels_3857  ";
-
-    console.log(sql2 + sql3 + sql4);
-
-    //sql_end=") WHERE id="+req.body.id+" RETURNING id";
-    //Remove trailing comma
-    //sql=sql_start+sql_middle.slice(0,-1)+sql_end;
-    //console.log(sql)
-    const result = await pool.query(sql2 + sql3 + sql4);
-    console.log(result);
-    res.status(201).json({ success: true, id: result.command });
-  } catch (err) {
-    console.error('DB error:', err);
-    res.status(500).json({ error: 'Database error' + err });
-  }
-});
 
 app.get('/api/total_length', async (req, res) => {
   var sql2, sql3, sql4;
   sql2 = sql3 = sql4 = '';
 
   try {
-    //Set the live flag on the current parcel to false
-    sql2 = `/*START SPATIAL STATS*/ SELECT round(cast(sum(ST_Length(geom)/1000) as numeric)) || ' km of NZ tramping tracks and routes under community management' as length FROM permolat_tracks WHERE status='live';`;
-    //Set the live flag on the next parcel in the chain to true
-    //NEED SOMETHING ON HISTORY here. Not the creation, may need to record the history
-    //ANY HISTORY function needs to read across all things in that area - can't be linked just to the layer because these can change
-    //Could use a bounding box?
-    //sql3=`UPDATE permolat_tracks SET live=true WHERE id=${req.body.properties.next_id};`;
-    //Record some history
-    //Get date
-    //const now = new Date();
-    //sql4=`UPDATE permolat_tracks SET history=history || 'returned this to live on ${now.toLocaleString()}' WHERE id=${req.body.properties.next_id};
-    /*END ROLLFORWARD*/ //sql_start="INSERT INTO parcels_3857  ";
+  //Set the live flag on the current parcel to false
+  sql2=`/*START SPATIAL STATS*/ SELECT round(cast(sum(ST_Length(geom)/1000) as numeric)) || ' km of NZ tramping tracks and routes under community management' as length FROM permolat_tracks WHERE live=true;`;
+  //Set the live flag on the next parcel in the chain to true
+  //NEED SOMETHING ON HISTORY here. Not the creation, may need to record the history
+  //ANY HISTORY function needs to read across all things in that area - can't be linked just to the layer because these can change
+  //Could use a bounding box?
+  //sql3=`UPDATE permolat_tracks SET live=true WHERE id=${req.body.properties.next_id};`;
+  //Record some history
+  //Get date
+  //const now = new Date();
+  //sql4=`UPDATE permolat_tracks SET history=history || 'returned this to live on ${now.toLocaleString()}' WHERE id=${req.body.properties.next_id};
+  /*END ROLLFORWARD*/;
 
     console.log(sql2 + sql3 + sql4);
 
@@ -417,6 +197,13 @@ app.get('/api/total_length', async (req, res) => {
     res.status(500).json({ error: 'Database error' + err });
   }
 });
+
+
+app.listen(PORT, () => {
+  console.log(`Server listening on http://localhost:${PORT}`);
+});
+
+
 
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);

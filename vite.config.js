@@ -15,7 +15,11 @@
           '/api/login': 'http://localhost:3000',
           '/api/logout': 'http://localhost:3000',
           '/api/get_session': 'http://localhost:3000',
+          '/api/login': 'http://localhost:3000',
+          '/api/logout': 'http://localhost:3000',
+          '/api/get_session': 'http://localhost:3000',
         },
       },
       base: process.env.VITE_BASE_URL || "/",
+      base: "https://www.wilsonenv.nz/permomap/",
     });
