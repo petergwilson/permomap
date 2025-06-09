@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Track Information Panels with Editable Sample Content</title>
+  <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+  <style>
+    .container-33 {
+      width: 33vw;
+      min-width: 320px;
+      margin: 40px auto;
+    }
+    .panel-title {
+      cursor: pointer;
+      user-select: none;
+    }
+    .collapsible-content {
+      display: none;
+      border-top: 1px solid #ccc;
+    }
+    [contenteditable=false] {
+      background: inherit;
+      outline: none;
+    }
+    [contenteditable=true] {
+      background: #fffde7;
+      outline: 1px dashed #333;
+      transition: background 0.2s;
+    }
+    .edit-toggle-label {
+      margin-right: 10px;
+      font-weight: bold;
+    }
+    @media only screen and (max-width: 700px) {
+      .w3-half {
+        width: 100% !important;
+        display: block;
+      }
+      .container-33 {
+        width: 95vw;
+        min-width: unset;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Edit Mode Toggle -->
+<div class="w3-container w3-center" style="margin-top:32px;">
+  <label class="edit-toggle-label">
+    <input type="radio" name="editToggle" id="editNo" value="no" checked onclick="setEditMode(false)"> View
+  </label>
+  <label class="edit-toggle-label">
+    <input type="radio" name="editToggle" id="editYes" value="yes" onclick="setEditMode(true)"> Edit
+  </label>
+</div>
+
+<div class="w3-card w3-white w3-row container-33">
+  <div class="w3-row">
+    <div class="w3-half w3-border-right w3-padding panel-title" onclick="toggleDropdown()">
+      <h4 class="w3-margin-0">Public track information</h4>
+    </div>
+    <div class="w3-half w3-padding panel-title" onclick="toggleDropdown()">
+      <h4 class="w3-margin-0">Moderating track information</h4>
+    </div>
+  </div>
+  <div id="dropdownContent" class="w3-row collapsible-content w3-animate-opacity">
+    <!-- Public Info -->
+    <div class="w3-half w3-border-right w3-padding">
+      <strong>Title:</strong>
+      <div class="editable" contenteditable="false" id="pub-title">Morning Run</div>
+      <strong>Description:</strong>
+      <div class="editable" contenteditable="false" id="pub-desc">
+        A relaxed run in the city park, open to all fitness levels.
+      </div>
+      <strong>Distance:</strong>
+      <div class="editable" contenteditable="false" id="pub-distance">5km</div>
+    </div>
+    <!-- Moderating Info -->
+    <div class="w3-half w3-padding">
+      <strong>Moderator:</strong>
+      <div class="editable" contenteditable="false" id="mod-moderator">Jane Doe</div>
+      <strong>Reported Issues:</strong>
+      <div class="editable" contenteditable="false" id="mod-issues">
+        No issues reported.
+      </div>
+      <strong>Status:</strong>
+      <div class="editable" contenteditable="false" id="mod-status">Active</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Toggle dropdown
+function toggleDropdown() {
+  var panel = document.getElementById("dropdownContent");
+  panel.style.display = (panel.style.display === "block") ? "none" : "block";
+}
+
+// Toggle edit mode for all editable fields
+function setEditMode(editable) {
+  var editFields = document.querySelectorAll('.editable');
+  editFields.forEach(function(elem) {
+    elem.contentEditable = editable;
+    if (editable) {
+      elem.classList.add('editing');
+    } else {
+      elem.classList.remove('editing');
+    }
+  });
+}
+
+// Optional: Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+  var dropdown = document.getElementById("dropdownContent");
+  var card = dropdown.parentElement;
+  var isClickInside = card.contains(event.target);
+  var isEditToggle = event.target.name === "editToggle";
+
+  if (!isClickInside && !isEditToggle) {
+    dropdown.style.display = "none";
+  }
+});
+</script>
+
+</body>
+</html>
