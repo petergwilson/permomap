@@ -7,70 +7,58 @@
     import { platformModifierKeyOnly, altShiftKeysOnly, shiftKeyOnly, targetNotEditable } from 'ol/events/condition';
     import { defaults as defaultInterctions, MouseWheelZoom, DragPan, DragRotate, KeyboardZoom, KeyboardPan } from 'ol/interaction';
     
-    //NZTM
-    import { register } from 'ol/proj/proj4';
-    import proj4 from 'proj4';
 
-    //Layers
-    import '../layers/layers.mjs';
-
-    //OTLB
-    // Browser prototype extensions
-    import 'oltb/src/oltb/js/browser-prototypes/json-cycle';
-    import 'oltb/src/oltb/js/browser-prototypes/string';
-    import 'oltb/src/oltb/js/browser-prototypes/slide-toggle';
-
-    // Core Toolbar
-    import 'oltb/src/oltb/scss/oltb.scss';
+    //NYT/ICE Editing library
+    //NEED TO ATTRIBUTE
+    import ice from 'ice';
 
 
-    //import { Tile } from 'ol/layer';
     //OGC ImageTile
-    import ImageTile from 'ol/source/ImageTile.js';
-    import TileLayer from 'ol/layer/Tile.js';
-    import OSM from 'ol/source/OSM.js';
-    import TileWMS from 'ol/source/TileWMS.js';
-    import XYZ from 'ol/source/XYZ.js';
+    import ImageTile from 'ol/source/ImageTile';
+    import TileLayer from 'ol/layer/Tile';
+    import OSM from 'ol/source/OSM';
+    import TileWMS from 'ol/source/TileWMS';
+    import XYZ from 'ol/source/XYZ';
     import Google from 'ol/source/Google';
-    import Layer from 'ol/layer/WebGLTile.js';
+    import Layer from 'ol/layer/WebGLTile';
 
     //Vector Tile Layer and VectorTileSource
-    import VectorTileLayer from 'ol/layer/VectorTile.js';
-    import VectorTileSource from 'ol/source/VectorTile.js';
-    import MVT from 'ol/format/MVT.js'; //MapBox vector tiles, using PBF (Protocol Buffer Binary format for speed)
+    import VectorTileLayer from 'ol/layer/VectorTile';
+    import VectorTileSource from 'ol/source/VectorTile';
+    import MVT from 'ol/format/MVT'; //MapBox vector tiles, using PBF (Protocol Buffer Binary format for speed)
 
     //Vector Layers
-    import VectorLayer from 'ol/layer/Vector.js';
-    import GeoJSON from 'ol/format/GeoJSON.js';
-    import VectorSource from 'ol/source/Vector.js';
+    import VectorLayer from 'ol/layer/Vector';
+    import GeoJSON from 'ol/format/GeoJSON';
+    import VectorSource from 'ol/source/Vector';
 
     //Style
-    import Style from 'ol/style/Style.js';
+    import Style from 'ol/style/Style';
 
     //Fill
-    import Fill from 'ol/style/Fill.js';
+    import Fill from 'ol/style/Fill';
 
     //Stroke
-    import Stroke from 'ol/style/Stroke.js';
+    import Stroke from 'ol/style/Stroke';
 
     //Select
-    import Select from 'ol/interaction/Select.js';
+    import Select from 'ol/interaction/Select';
 
     //Snap
-    import Snap from 'ol/interaction/Snap.js';
+    import Snap from 'ol/interaction/Snap';
 
     //Draw and Modify
-    import Draw from 'ol/interaction/Draw.js';
-    import Modify from 'ol/interaction/Modify.js';
+    import Draw from 'ol/interaction/Draw';
+    import Modify from 'ol/interaction/Modify';
 
     //Interactions
-    import {defaults as defaultInteractions} from 'ol/interaction/defaults.js';
+    import {defaults as defaultInteractions} from 'ol/interaction/defaults';
 
     //Controls
-    import Control from 'ol/control/Control.js';
+    import Control from 'ol/control/Control';
 
     //Attribution
-    import Attribution from 'ol/control/Attribution.js';
+    import Attribution from 'ol/control/Attribution';
 
     //LineString
     import { LineString } from 'ol/geom';
@@ -81,7 +69,42 @@
 
     //Import layers
 
-  //Assign info DOM element 
+  //Window.onpageload to check for session information
+  //Session info is held on server
+
+  window.onload = async function() {
+    // Check if a session exists. 
+
+    const session_exists=await fetch('/api/get_session', {
+        METHOD: 'GET'
+    }).then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json(); // Parse the JSON response)
+    }).then(data => {
+        // Display session information
+        console.log(data);
+        //alert("Existing session");
+
+        //Update username info
+        document.getElementById("username_field").innerHTML=`User: ${data.username}`;  
+
+        //Update map layers based on permissions
+        ///Uses the same function as for other login/session actions
+        reloadUserSettings(map,data.role);
+
+
+      }).catch(error => {
+        //Unsuccesful
+        //alert("No existing session");
+
+
+      });
+    
+  };
+  
+    //Assign info DOM element 
   const editorDiv = document.getElementById('info');
   
   //Assign modify DOM element
@@ -100,6 +123,7 @@ var geojson=new GeoJSON;
 var login_details={
     name: '',
     email: '',
+    role: '',
 
 };
   
@@ -124,12 +148,30 @@ window.addEventListener("click", (event) => {
     }
 });
 
-loginSubmitButton.addEventListener("click", (event) => {
-    //event.preventDefault(); // Prevent actual form submission
-    // Here you can add your login logic
+ // Example logout function
+ async function logout() {
+    const response = await fetch('/logout', {
+        method: 'POST',
+      });
+      if (response.ok) {
+        // Redirect to login page or update UI
+      } else {
+        // Handle logout error
+      }
+  }
+  
+  
+  function isValidJSON(str) {
+    try {
+      JSON.parse(str);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 
-    //Get login form info
-    //HACKY BUT WORKS
+//Login button
+loginSubmitButton.addEventListener("click", async(event) =>{
 
     //GET LOGIN INPUT FIELDS
     
@@ -137,58 +179,34 @@ loginSubmitButton.addEventListener("click", (event) => {
     var login_email_element=document.getElementById("login_email");
     var login_password_element=document.getElementById("login_password");
 
-    //Check for blanks, if not blank, enter data
-    //Including existing data
-    //alert()
-
-    //Populate input fields, if exist
-
-    if (login_name_element.value!='' & login_password_element.value=='permolat_test') {   
-        
-        //Update global storage for login
-        //REPLACE WITH COOKIES EVENTUALLY
-
-        //alert(JSON.stringify(myLogin));
-
-        //Object.assign(window.geojson,myLogin);
-
-        //Login JSON
-        login_details.name=login_name_element.value;
-        login_details.email=login_email_element.value;
-
-        //window.geojson["login_email"]=;
-        //window.geojson["login_password"]=login_email_element.value;
-
-        //Enable save, rollfoward, rollback buttons
-        //ONLY WORKS FOR ROLLFORWARD AND ROLLBACK BUTTONS WHERE THEY ARE IN A FEATURE ALREADY OPEN
-        //WHEN LOGIN CLICKED
-        //OTHERWISE TEST FOR LOGIN WHEN THESE ARE LOADED
-        //saveButton.disabled=false;
-        //rollForward.disabled=false;
-        //rollBack.disabled=false; 
-
-        //add login info to geojson object
-        //populate form with window.geojson.login_name 
-        //login_name_element.value=window.geojson.login_name;
-        //login_email_element.value=window.geojson.login_email;
-        //login_password_element.value=window.geojson.login_password;
-
-        document.getElementById("username_field").innerHTML="User: "+login_name_element.value+" Logged in";
-
-        //Test login variables 
-        //alert(window.geojson.login_name);
-
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({username: login_name_element.value, password:login_password_element.value}),
+    }).then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json(); // Parse the JSON response)
+    }).then(data => {
+        // Process the JSON data here
+        console.log(data);
         alert("Login successful");
+        document.getElementById("username_field").innerHTML=`User: ${data.username}`; 
+  
 
-    } else {
+        //Update map layers based on permissions
+      }).catch(error => {
+        //Unsuccesful
         alert("Login / password unsuccessful");
+      });
+           
 
-    }
-    
+      
     modal.style.display = "none";
-
-
-});
+  });
+  
+  
 
   //Assign login DOM element
 
@@ -197,7 +215,7 @@ loginSubmitButton.addEventListener("click", (event) => {
   //DOC Huts
   const iconStyle_hut = new Style({
     image: new Icon({
-      src: '../images/house-xxl.png', // Path to your icon image
+      src: './images/house-xxl.png', // Path to your icon image
       anchor: [0.5, 1], // Anchor point of the icon (center bottom)
       scale: 1, // Scale of the icon
     }),
@@ -226,7 +244,7 @@ loginSubmitButton.addEventListener("click", (event) => {
 
   const googleLayer = new Layer({
     source: new Google({
-      key: 'AIzaSyDU2yD_zlCijJd1j9vOenPfsUiF-zT5cM8',
+      key: 'AIzaSyDkuLZf-kPmnunxBQYzszlHy6eYc4PcUYQ',
       mapType: 'satellite', // or 'hybrid', 'terrain'
       scale: 'scaleFactor2x',
       highDpi: true,
@@ -336,7 +354,47 @@ loginSubmitButton.addEventListener("click", (event) => {
             }),
     });
     */
-   //Permolat style
+
+    //PENDING PERMOLAT STYLE
+   
+    var permolat_pending = new Style({
+        stroke: new Stroke({
+          color: 'rgba(2, 18, 246, 0.99)',
+          width: 3,
+          lineDash: [4,8],
+          lineDashOffset: 6
+        }),
+        fill: new Fill({
+            color: 'rgba(253, 249, 2, 0.99)', 
+        }),
+      });
+    
+
+    
+        const pg_pending = new VectorLayer({
+        // /background: 'white',
+        source: new VectorSource({
+            //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
+            //CAN BE CHANGED
+            url: 'http://localhost:9050/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=status=%27pending%27',
+            format: new GeoJSON(),
+            wrapX: false,
+            name: 'permolat_tracks',
+            //projection: 'EPSG:2193',
+            ZIndex:10,
+        }),
+        style: [permolat_pending],
+        });
+   
+   
+   
+   
+   
+   
+   
+   
+   
+    //BASE Permolat style
 
    var lightStroke_permolat = new Style({
     stroke: new Stroke({
@@ -375,10 +433,11 @@ loginSubmitButton.addEventListener("click", (event) => {
     source: new VectorSource({
         //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
         //CAN BE CHANGED
-        url: 'http://localhost:9050/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=live=true',
+        url: 'http://localhost:9050/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=status=%27live%27',
         format: new GeoJSON(),
         wrapX: false,
         name: 'permolat_tracks',
+        ZIndex:7,
         //projection: 'EPSG:2193',
     }),
     style: [lightStroke_permolat, darkStroke_permolat],
@@ -610,10 +669,12 @@ loginSubmitButton.addEventListener("click", (event) => {
         }),
     });
 
-    // select interaction working on "singleclick"
-    const selectInteraction = new Select({
+    // Select interaction for all layers
+    //Except of course if the layer is turned off at the geoserver then it won't show to be clicked
+    //THIS WAY MAY BE LESS CUMBERSOME THAN TURNING THEM ON AND OFF FOR EACH LAYER BASED ON A USER ROLE
+    const selectInteraction= new Select({
         //Choose layers to select
-        layers: [pg_test, pg_doc],
+        layers: [pg_test, pg_doc,pg_pending],
         style: selectStyle});
 
     /*
@@ -645,7 +706,7 @@ loginSubmitButton.addEventListener("click", (event) => {
 // 1. Create the Control Element
 const saveControlDiv = document.createElement('div');
 saveControlDiv.className = 'custom-save-control';
-saveControlDiv.innerHTML = '<button>Save edits</button>';
+saveControlDiv.innerHTML = '<button>Save edits for moderating</button>';
 
 // 2. Define the Control Class
 class SaveControl extends Control {
@@ -753,72 +814,16 @@ style_control_rollback.innerHTML = `
   }
 `;
 document.head.appendChild(style_control_rollback);
-/*
-// ROLLBACK CONTROL
-// CSS for positioning the control
-// 1. Create the Control Element
-const newControlDiv = document.createElement('div');
-newControlDiv.className = 'custom-new-control';
-newControlDiv.innerHTML = `<div class="row">
-      <div class="col-auto">
-        <span class="input-group">
-          <label class="input-group-text" for="type">Geometry type:</label>
-          <select class="form-select" id="type">
-            <option value="Point">Point</option>
-            <option value="LineString">LineString</option>
-            <option value="Polygon">Polygon</option>
-            <option value="Circle">Circle</option>
-            <option value="None">None</option>
-          </select>
-          <input class="form-control" type="button" value="Undo" id="undo">
-        </span>
-      </div>
-    </div>`;
 
-// 2. Define the Control Class
-class NewControl extends Control {
-  constructor(opt_options) {
-    const options = opt_options || {};
-    super({
-      element: newControlDiv,
-      target: options.target,
-    });
-
-    // Add event listener to the button
-    newControlDiv.querySelector('draw_type').addEventListener('change',  function() {
-        map.removeInteraction(draw);
-        //addInteraction();
-    });
-
-    newControlDiv.querySelector('undo').addEventListener('click', function () {
-        draw.removeLastPoint();
-    });
-  }
-}
-
-// CSS for positioning the control
-const style_control_new = document.createElement('style');
-style_control_new.innerHTML = `
-  .custom-new-control {
-    position: absolute;
-    top: 160px;
-    right: 10px;
-    background-color: white;
-    padding: 5px;
-    border: 1px solid black;
-    z-index: 1000; /* Ensure it's on top of the map 
-    visibility:'hidden';  Hidden until turned on 
-  }
-`;
-document.head.appendChild(style_control_new);
-*/
 
     const map = new Map({
     //NEED FUNCTIONALITY AROUND TURNING OFF AND ON MODIFICATION
+
+    //INTERACTIONS ARE CURRENTLY WRITTEN FOR EACH VECTOR LAYER
     
     interactions: defaultInteractions().extend([selectInteraction, modifyInteraction]),
     controls: defaultControls({attribution: false}).extend([new GoogleLogoControl()]).extend([attribution]).extend([new SaveControl]).extend([new RollForwardControl]).extend([new RollBackControl]),
-    layers: [googleLayer,/*topo50_layer,*/pg_doc, pg_doc_huts, pg_test],
+    layers: [/*googleLayer,*/topo50_layer,pg_doc, pg_doc_huts, pg_test],
     //layers: [pg_local_wdc_parcels_test],
     target: 'map',
     //projection: 'EPSG:2193',
@@ -832,21 +837,8 @@ document.head.appendChild(style_control_new);
  
 
 
-  /*
-  *OnClick event
-  *When user clicks on the map, other then dragging, which isn't implemented
-  *It runs the showInfo function with the event information
-  */
- /*
-  map.on('click', function (evt) {
-    if (evt.dragging) {
-      return;
-    }
-    showInfo(evt);
-  });
-    */
-    /*
-  *OnMouseUp event
+
+  /*OnMouseUp event
   *When user releases the mouse click, other then dragging, which isn't implemented
   *It runs the showInfo function
   *This differs from OnClick in when editing/modifying shapes, the mouseup event ensures that the new geometry is sent to the form module
@@ -859,6 +851,7 @@ document.head.appendChild(style_control_new);
     event.preventDefault();
     const modifiedFeatures = event.features.getArray();
     modifiedFeatures.forEach(feature => {
+        //alert("Logging here:");
       console.log("Feature modified:", feature);
          //Update window feature
         const geojsonFormat=new GeoJSON();
@@ -969,7 +962,12 @@ document.head.appendChild(style_control_new);
 
   //Select interactions. 
 
-    selectInteraction.on('select', function(event)  {
+    selectInteraction.on('select', on_select);
+    
+    
+    //Select interaction main function
+    //
+    function on_select(event)  {
         //event.preventDefault();
 
         const selectedFeature = event.selected[0];
@@ -1030,7 +1028,8 @@ document.head.appendChild(style_control_new);
             //Sort the properties array into desired order for editing
             const sortedObject = sortObjectByKeys(properties, customOrder);
             var label_content;
-
+            var inputtype
+            inputtype='text';
             for (const key in sortedObject) 
             {
                 
@@ -1049,10 +1048,11 @@ document.head.appendChild(style_control_new);
                             break;
                         case 'nextcut': 
                             label_content='Next Cut';
+                            inputtype='date';
                             break;
                         case 'lastcut': 
                             label_content='Last Cut';
-                            //half_size=true; 
+                            inputtype='date'; 
                             break;
                         case 'currentcon': 
                             label_content='Current Condition';
@@ -1077,6 +1077,7 @@ document.head.appendChild(style_control_new);
 
                     const input = document.createElement('div');
                     //Styling for the editable div
+                    //input.type=inputtype; 
                     input.contentEditable = 'true';
                     input.style.border = '1px solid #ccc';
                     input.style.padding = '5px';
@@ -1087,14 +1088,40 @@ document.head.appendChild(style_control_new);
                     //input.type = 'text';
                     input.textContent = properties[key];
 
+                    
+                    //Get session data
+                    //Stored on server for multi-user scenarios
+
+                    const session_role=fetch('/api/get_session',
+                        {
+                            METHOD: 'GET'
+                        }).then(response => {
+                            if (!response.ok) {
+                              throw new Error(`HTTP error! Status: ${response.status}`);
+                            }
+                            return response.json(); // Parse the JSON response)
+                        }).then(data => {
+                            // Display session information
+                            //console.log(data);
+                            //alert("Existing session");
+                    
+                            //Return user role to the const. 
+                            return data.role; 
+                          }).catch(error => {
+                            //Unsuccesful
+                            alert("No existing session"+error);
+                    
+                          });
+
+
                     //Key flag
-                    //If there is a next_id with a populated value, then the roll-forward button becomes visible
-                    if (key=='next_id' && properties[key]!==null) {
+                    //If there is a next_id with a populated value, AND USER IS A MODERATOR then the roll-forward button becomes visible
+                    if (key=='next_id' && properties[key]!==null && session_role=='moderator') {
                         //alert("Fired " + key + " " + properties[key]);
                         key_flag_rollforward=true;
                     } 
-                    //If there is a previous_id with a populated value, then the roll-backward button becomes visible 
-                    if (key=='prev_id' && properties[key]!==null) {
+                    //If there is a previous_id with a populated value, AND USER IS A MODERATOR then the roll-backward button becomes visible 
+                    if (key=='prev_id' && properties[key]!==null && session_role=='moderator') {
                         //alert("Fired " + key + " " + properties[key]);
                         key_flag_rollback=true;
                     } 
@@ -1199,9 +1226,11 @@ document.head.appendChild(style_control_new);
 
         }//end if test for no feature classes
 
-    });//end select on.interaction
-    
-    
+    }//end select on.interaction    
+
+
+    //Important function to reload the map at the current location
+    //Acts as a refresh as openlayers refresh functionality doesn't really work natively
     async function reloadMapAtCurrentLocation(map) {
         try {
           //const coords = await getCurrentLocation();
@@ -1214,186 +1243,36 @@ document.head.appendChild(style_control_new);
         }
       }
 
-        //Get the features from the layer for saving
-        //WILL NEED A LAYER TEST HERE
-        //if (this.layerName='Permolat Test') {
-            //var saveFeatures=selectedFeature;
-        //} else if (this.layerName='DOC Tracks') {
-            //var saveFeatures=doc_tracks.getSource().getFeatures();
-        //}
-        //else {
-            //Cannot save without a layer clicked, return
-            //return;
-    
+    //Important function to set the layers based on the user settings
+    //Fires each time a session/login changes. 
+    async function reloadUserSettings(map,role) {
 
-  /*
-  function showInfo(event) {
-    const features = pg_test.getFeatures(event.pixel).then (function(features){
-      //if (features.length == 0) {
-        //info.innerText = '';
-        //info.style.opacity = '0';
-      //return;}
-
-      //This global variable stores the pixel state - i.e. where has a user clicked - on the map
-      //It is quasi-state for the application
-      map_click_pixel=event.pixel;
-
-      //Hacky global variable assignation for the geojson object
-      
-      let currentState=features[0];
-
-      const properties = features[0].getProperties();
+        //Apply different layers depending on role
+        //WILL ALSO NEED TO CHANGE SELECT FUNCTIONALITY
 
 
-      //THIS CAN ONLY WORK IN CURRENT FORMAT FOR A SINGLE FEATURE AT A TIME
-      //DUE TO ARRAY[0] 
-      //const properties_geojson = new GeoJSON().writeFeatureObject(features[0]);
-      
-      //info.innerText = JSON.stringify(properties, null, 2);
-      //info.style.opacity = '1';
+        switch(role) {
+            case 'user': 
+            //General users get basic map setup
+                map.setLayers([/*googleLayer,*/topo50_layer,pg_doc, pg_doc_huts, pg_test]);
+                 //Update select interactions to just the original layer
+                 //selectInteraction.set('layers', [pg_test]);
+                 //modifyInteraction.set('features',[pg_test]);
+                break;
+            case 'moderator': 
+            //Moderators get to see existing tracks PLUS CHANGES IN ANOTHER COLOUR
+            //Changes are the pending changes in the live=pending field. 
+                map.setLayers([/*googleLayer,*/topo50_layer,pg_doc, pg_doc_huts, pg_test,pg_pending]);
+                //Update select and modify interactions to include the pending layer
 
-      
-      
-      //Update the dynamic form
-      //WITH REACT, PROBABLY ONLY NEED TO DO THIS ONCE AT DOCUMENT LOAD RATHER THAN CONSTANTLY UPDATING THE DOM
-      
-      generateFormFromGeoJSON(properties,currentState,'info');
-      
-    })
-  }
-    
-    /*Generate the dynamic forms for data entry based off the map feature JSON
-    //Uses a hacky hidden form for the geometry as WKT
-    TO DO: Carrying over the GeoJSON in some form so it can be seen?
-    PROBABLY RUN IT OFF THE LAYER PROPERTIES AT FIRST LOAD TIME/REFRESH OF PAGE
-    
+                //const currentLayers = selectInteraction.getLayers().getArray();
+                //selectInteraction.set('layers', currentLayers.concat([pg_pending]));
 
-    function generateFormFromGeoJSON(properties, currentState, containerId) 
-    {
-      
-      const form = document.createElement('form');
-      form.id = 'dynamicForm';
-      //form.method='POST';  
-      //form.action='/api/submit';
-
-      //Flags for setting visibility of rollforward and rollback buttons
-      var key_flag_rollforward=false; 
-      var key_flag_rollback=false; 
-
-      for (const [key, value] of Object.entries(properties).sort()) {
-        const label = document.createElement('label');
-        label.setAttribute('for', key);
-        label.textContent = key + ': ';
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.name = key;
-        input.id = key;
-        input.value=value;
-
-        //ANOTHER ATTEMPT AT A FUNCTION THAT WRITES THE CHANGE TO THE GEOJSON OBJECT
-        input.onmouseleave=function(e) {
-
+                break;
 
         }
 
-        //USE THIS BASIC LOGIC TO TURN OFF FIELDS HOLDING NON EDITABLE INFO
-        //MAKE THEM INVISIBLE BUT STILL ON THE FORM
-        if (label.textContent=='layer: ' || label.textContent=='geometry: ' || label.textContent=='topology_t: ') {
-          label.appendChild(input);
-          form.appendChild(label);
-          //Hidden
-          label.style.visibility='hidden';
-          label.style.display='none';
-          // Line break for readability
-          //form.appendChild(document.createElement('br'));
-        } else {
-            //Otherwise add the field
-            label.appendChild(input);
-            //label.style.visibility='hidden';
-            form.appendChild(label);
-            // Line break for readability
-            form.appendChild(document.createElement('br'));
-        }
+
         
-        //Key flag
-        //If there is a next_id with a populated value, then the roll-forward button becomes visible
-        if (key=='next_id' & value!=='') {key_flag_rollforward=true} 
-        //If there is a previous_id with a populated value, then the roll-backward button becomes visible 
-        if (key=='previous_id' & value!=='') {key_flag_rollback=true} 
-      }
-
-      // Submit buttons
-      const submit = document.createElement('button');
-      submit.type = 'submit';
-      submit.textContent = 'Submit changes';
-      
-      const rollback = document.createElement('button');
-      rollback.type = 'button';
-      rollback.textContent = 'Roll back to previous';
-
-      const rollforward = document.createElement('button');
-      rollforward.type='button';
-      rollforward.textContent='Roll forward to next';
-      
-      //Set visibility of the rollforward button based on the key_flags defined above
-      if (key_flag_rollforward) {rollforward.style.visibility='visible';}
-      else {rollforward.style.visibility='hidden';}
-
-      //Set visibility of the rollback button based on the key_flags defined above
-      if (key_flag_rollback) {rollback.style.visibility='visible';}
-      else {rollback.style.visibility='hidden';}
-
-      //Add buttons to the dynamic form
-
-      form.appendChild(submit);
-      form.appendChild(document.createElement('br'));
-      form.appendChild(rollback);
-      form.appendChild(document.createElement('br'));
-      form.appendChild(rollforward);
-      
-
-      // Add to container
-      const container = document.getElementById(containerId);
-      container.innerHTML = ''; // Clear previous
-      container.appendChild(form);
-
-      // Handle submit
-      form.onsubmit = async function(e) {
-        e.preventDefault();
-  
-        try 
-        {
-            const form = document.getElementById('dynamicForm');
-            const formData = new FormData(form);
-
-            if (!form) {
-                console.error(`Form with ID not found.`);
-                return;
-            }
-        
-            const response = await fetch('/api/submit', {
-                method: 'POST',
-                body: formData,
-                params: 'parcels_3857',
-                //Uses default MIME types etc
-            });
-
-            const data = await response.json();
-            //document.getElementById('info').textContent = data.success
-            //Effectively reclick the same parcel to update the form with the new database record
-            //Database maintaining state. 
-            //showInfo(this.event)
-            pg_test.getSource().refresh();
-
-            //Hacky way of refreshing the form  
-            generateFormFromJSON(map.getFeaturesAtPixel(map_click_pixel,pg_test.getSource()),'info');
-    
-        } catch (err) {
-            alert('Error: '+err);
-        }
     }
 
-    // Handle button click for the rollback button
-    
-    */
