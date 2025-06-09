@@ -15,14 +15,15 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
+    "connect-pg-simple": "^10.0.0",
+    "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
-    "jsts": "^2.12.1",
-    "multer": "^2.0.0",
+    "express-session": "^1.18.1",
+    "ice": "^3.7.100",
+    "nytimes-ice": "^0.6.3",
     "ol": "latest",
-    "oltb": "^3.4.1",
-    "pg": "^8.16.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "pg": "^8.16.0"
   }
 }
