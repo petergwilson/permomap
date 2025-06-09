@@ -10,7 +10,7 @@
 
     //NYT/ICE Editing library
     //NEED TO ATTRIBUTE
-    import ice from 'ice';
+    import { Ice } from "ice";
 
 
     //OGC ImageTile
