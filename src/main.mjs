@@ -10,7 +10,7 @@
 
     //NYT/ICE Editing library
     //NEED TO ATTRIBUTE
-    import { Ice } from "ice";
+    import Ice from './ice.mjs';
 
 
     //OGC ImageTile
@@ -967,10 +967,21 @@ document.head.appendChild(style_control_rollback);
     
     //Select interaction main function
     //
-    function on_select(event)  {
+    async function on_select(event)  {
         //event.preventDefault();
 
         const selectedFeature = event.selected[0];
+
+        // Retrieve session info for Ice
+        let sessionInfo = null;
+        try {
+            const resp = await fetch('/api/get_session', { METHOD: 'GET' });
+            if (resp.ok) {
+                sessionInfo = await resp.json();
+            }
+        } catch (err) {
+            console.error('Failed to fetch session info', err);
+        }
 
         //const geojsonFormat=new GeoJSON();
         //const geojsonObject = geojsonFormat.writeFeatureObject(selectedFeature);
@@ -1088,30 +1099,20 @@ document.head.appendChild(style_control_rollback);
                     //input.type = 'text';
                     input.textContent = properties[key];
 
-                    
-                    //Get session data
-                    //Stored on server for multi-user scenarios
+                    // Initialize ICE editor for this input
+                    if (sessionInfo) {
+                        new Ice(input, {
+                            username: sessionInfo.username,
+                            email: sessionInfo.email,
+                            role: sessionInfo.role
+                        });
+                    } else {
+                        new Ice(input, {});
+                    }
 
-                    const session_role=fetch('/api/get_session',
-                        {
-                            METHOD: 'GET'
-                        }).then(response => {
-                            if (!response.ok) {
-                              throw new Error(`HTTP error! Status: ${response.status}`);
-                            }
-                            return response.json(); // Parse the JSON response)
-                        }).then(data => {
-                            // Display session information
-                            //console.log(data);
-                            //alert("Existing session");
                     
-                            //Return user role to the const. 
-                            return data.role; 
-                          }).catch(error => {
-                            //Unsuccesful
-                            alert("No existing session"+error);
-                    
-                          });
+                    // Determine session role from fetched session info
+                    const session_role = sessionInfo ? sessionInfo.role : '';
 
 
                     //Key flag
