@@ -65,6 +65,31 @@
         text-decoration: none;
         cursor: pointer;
     }
+    #contextMenu {
+      position: fixed;
+      display: none;
+      background: #fff;
+      border: 1px solid #aaa;
+      border-radius: 6px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+      z-index: 1000;
+      min-width: 180px;
+    }
+    #contextMenu .author {
+      padding: 9px 16px 7px 16px;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+      color: #333;
+    }
+    #contextMenu .restore {
+      cursor: pointer;
+      padding: 8px 16px;
+      transition: background 0.13s;
+      font-size: 15px;
+    }
+    #contextMenu .restore:hover {
+      background: #f3f5ff;
+    }
     </style>
 </head>
 <body>
@@ -116,6 +141,10 @@
                 <div class="w3-pale-green w3-round-large" id="dynamicContent" style="height:900px;">
                   <pre id="title"></pre>  
                   <div id="info" style="height:500px; overflow:auto" ></div>
+                  <div id="contextMenu">
+                    <div class="author"></div>
+                    <div class="restore">Restore text</div>
+                  </div>
                 </div>
             </div>
         </div>
