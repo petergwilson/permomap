@@ -14,6 +14,7 @@ TODO in https://github.com/petergwilson/permomap/edit/main/TODO.md
 Instructions on understanding/training in the geospatial software stack that this application uses are to come. Meanwhile, if you want to learn and contribute, email petergwilson@gmail.com directly. 
 
 ## culture
+Slack for this project is here: https://app.slack.com/client/T029TN85MFA/C091KG0HP16
 
 Contributers of all ages and technical ability are encouraged, and will be supported in software engineering, geospatial applications, and an understanding of New Zealand mountain culture. Community standards about the use of the application may be set and applied to all users. Committers/maintainers will be chosen from amongst the group of contributers peer choice. Both software contributers and content contributers/moderators are encouraged. 
 
