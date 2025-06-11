@@ -1,0 +1,274 @@
+diff --git a/src/main.mjs b/src/main.mjs
+index ceb1a2b42c54addc82fdcdedef08633be9f07a9a..a28855f68c61baf42941873e14dc8732d35a5bd3 100644
+--- a/src/main.mjs
++++ b/src/main.mjs
+@@ -1,38 +1,38 @@
+     // Core OpenLayers
+     import 'ol/ol.css';
+     import { Map, View } from 'ol';
+     import { fromLonLat } from 'ol/proj';
+     import { get as getProjection } from 'ol/proj';
+     import { defaults as defaultControls } from 'ol/control';
+     import { platformModifierKeyOnly, altShiftKeysOnly, shiftKeyOnly, targetNotEditable } from 'ol/events/condition';
+     import { defaults as defaultInterctions, MouseWheelZoom, DragPan, DragRotate, KeyboardZoom, KeyboardPan } from 'ol/interaction';
+     
+ 
+     //NYT/ICE Editing library
+     //NEED TO ATTRIBUTE
+-    import { Ice } from "ice";
++    import Ice from './ice.mjs';
+ 
+ 
+     //OGC ImageTile
+     import ImageTile from 'ol/source/ImageTile';
+     import TileLayer from 'ol/layer/Tile';
+     import OSM from 'ol/source/OSM';
+     import TileWMS from 'ol/source/TileWMS';
+     import XYZ from 'ol/source/XYZ';
+     import Google from 'ol/source/Google';
+     import Layer from 'ol/layer/WebGLTile';
+ 
+     //Vector Tile Layer and VectorTileSource
+     import VectorTileLayer from 'ol/layer/VectorTile';
+     import VectorTileSource from 'ol/source/VectorTile';
+     import MVT from 'ol/format/MVT'; //MapBox vector tiles, using PBF (Protocol Buffer Binary format for speed)
+ 
+     //Vector Layers
+     import VectorLayer from 'ol/layer/Vector';
+     import GeoJSON from 'ol/format/GeoJSON';
+     import VectorSource from 'ol/source/Vector';
+ 
+     //Style
+     import Style from 'ol/style/Style';
+ 
+     //Fill
+diff --git a/src/main.mjs b/src/main.mjs
+index ceb1a2b42c54addc82fdcdedef08633be9f07a9a..a28855f68c61baf42941873e14dc8732d35a5bd3 100644
+--- a/src/main.mjs
++++ b/src/main.mjs
+@@ -53,53 +53,53 @@
+ 
+     //Interactions
+     import {defaults as defaultInteractions} from 'ol/interaction/defaults';
+ 
+     //Controls
+     import Control from 'ol/control/Control';
+ 
+     //Attribution
+     import Attribution from 'ol/control/Attribution';
+ 
+     //LineString
+     import { LineString } from 'ol/geom';
+ 
+     //Icons
+     import Icon from 'ol/style/Icon';
+     //import Style from 'ol/style/Style';
+ 
+     //Import layers
+ 
+   //Window.onpageload to check for session information
+   //Session info is held on server
+ 
+   window.onload = async function() {
+     // Check if a session exists. 
+ 
+-    const session_exists=await fetch('/api/get_session', {
+-        METHOD: 'GET'
+-    }).then(response => {
++    const session_exists=await fetch('/api/get_session', {
++        method: 'GET'
++    }).then(response => {
+         if (!response.ok) {
+           throw new Error(`HTTP error! Status: ${response.status}`);
+         }
+         return response.json(); // Parse the JSON response)
+     }).then(data => {
+         // Display session information
+         console.log(data);
+         //alert("Existing session");
+ 
+         //Update username info
+         document.getElementById("username_field").innerHTML=`User: ${data.username}`;  
+ 
+         //Update map layers based on permissions
+         ///Uses the same function as for other login/session actions
+         reloadUserSettings(map,data.role);
+ 
+ 
+       }).catch(error => {
+         //Unsuccesful
+         //alert("No existing session");
+ 
+ 
+       });
+     
+   };
+diff --git a/src/main.mjs b/src/main.mjs
+index ceb1a2b42c54addc82fdcdedef08633be9f07a9a..a28855f68c61baf42941873e14dc8732d35a5bd3 100644
+--- a/src/main.mjs
++++ b/src/main.mjs
+@@ -945,54 +945,65 @@ document.head.appendChild(style_control_rollback);
+     alert('Modify end');
+ 
+     modifiedFeature = e.selected[0];
+     
+      //Update window feature
+      const geojsonFormat=new GeoJSON();
+      const geojsonObject = geojsonFormat.writeFeatureObject(modifiedFeature);
+ 
+      
+      //Attach to the window
+      window.geojson = geojsonObject;
+      
+      //alert(key+":"+input.textContent);
+      //pg_test.changed(); // Redraw the layer
+ 
+   });
+   */
+ 
+   //Select interactions. 
+ 
+     selectInteraction.on('select', on_select);
+     
+     
+     //Select interaction main function
+     //
+-    function on_select(event)  {
+-        //event.preventDefault();
+-
+-        const selectedFeature = event.selected[0];
++    async function on_select(event)  {
++        //event.preventDefault();
++
++        const selectedFeature = event.selected[0];
++
++        // Retrieve session info for Ice
++        let sessionInfo = null;
++        try {
++            const resp = await fetch('/api/get_session', { method: 'GET' });
++            if (resp.ok) {
++                sessionInfo = await resp.json();
++            }
++        } catch (err) {
++            console.error('Failed to fetch session info', err);
++        }
+ 
+         //const geojsonFormat=new GeoJSON();
+         //const geojsonObject = geojsonFormat.writeFeatureObject(selectedFeature);
+ 
+         //Attach to the window
+         //window.geojson = geojsonObject;
+ 
+         // Get the coordinates
+         //window.coordinates = event.coordinate;
+         //window.zoomLevel=event.zoomLevel;
+ 
+         //console.log('Coordinates:', coordinate);
+ 
+         //Flags for setting visibility of rollforward and rollback buttons
+         var key_flag_rollforward=false; 
+         var key_flag_rollback=false; 
+         
+         const titleDiv = document.getElementById('title');
+         const controlDiv = document.getElementById('control');
+         //TitleDiv style
+         titleDiv.style.fontFamily = 'Arial, sans-serif';
+         titleDiv.style.border = '1px solid #ccc';
+         titleDiv.style.padding = '5px';
+         // Set font weight to bold
+         titleDiv.style.fontWeight = 'bold';
+diff --git a/src/main.mjs b/src/main.mjs
+index ceb1a2b42c54addc82fdcdedef08633be9f07a9a..a28855f68c61baf42941873e14dc8732d35a5bd3 100644
+--- a/src/main.mjs
++++ b/src/main.mjs
+@@ -1064,76 +1075,66 @@ document.head.appendChild(style_control_rollback);
+                             label_content='History';
+                             break;
+                         default: 
+                             label_content=key;
+                     }
+                     
+                     const label = document.createElement(key);
+                     label.textContent = label_content + ': ';
+                     // Set font weight to bold
+                     label.style.fontWeight = 'bold';
+ 
+                     // Set font size to 12px
+                     label.style.fontSize = '16px';
+ 
+                     const input = document.createElement('div');
+                     //Styling for the editable div
+                     //input.type=inputtype; 
+                     input.contentEditable = 'true';
+                     input.style.border = '1px solid #ccc';
+                     input.style.padding = '5px';
+                     //Word wrap
+                     input.style.whiteSpace = "pre-wrap";
+                     input.style.overflowWrap = "break-word";
+                     
+                     //input.type = 'text';
+-                    input.textContent = properties[key];
++                    input.textContent = properties[key];
++
++                    // Initialize ICE editor for this input
++                    if (sessionInfo) {
++                        new Ice(input, {
++                            username: sessionInfo.username,
++                            email: sessionInfo.email,
++                            role: sessionInfo.role
++                        });
++                    } else {
++                        new Ice(input, {});
++                    }
+ 
+                     
+-                    //Get session data
+-                    //Stored on server for multi-user scenarios
+-
+-                    const session_role=fetch('/api/get_session',
+-                        {
+-                            METHOD: 'GET'
+-                        }).then(response => {
+-                            if (!response.ok) {
+-                              throw new Error(`HTTP error! Status: ${response.status}`);
+-                            }
+-                            return response.json(); // Parse the JSON response)
+-                        }).then(data => {
+-                            // Display session information
+-                            //console.log(data);
+-                            //alert("Existing session");
+-                    
+-                            //Return user role to the const. 
+-                            return data.role; 
+-                          }).catch(error => {
+-                            //Unsuccesful
+-                            alert("No existing session"+error);
+-                    
+-                          });
++                    // Determine session role from fetched session info
++                    const session_role = sessionInfo ? sessionInfo.role : '';
+ 
+ 
+                     //Key flag
+                     //If there is a next_id with a populated value, AND USER IS A MODERATOR then the roll-forward button becomes visible
+                     if (key=='next_id' && properties[key]!==null && session_role=='moderator') {
+                         //alert("Fired " + key + " " + properties[key]);
+                         key_flag_rollforward=true;
+                     } 
+                     //If there is a previous_id with a populated value, AND USER IS A MODERATOR then the roll-backward button becomes visible 
+                     if (key=='prev_id' && properties[key]!==null && session_role=='moderator') {
+                         //alert("Fired " + key + " " + properties[key]);
+                         key_flag_rollback=true;
+                     } 
+                     
+ 
+                     //Set uneditable fields
+                     //IF THE FIELD IS CUSTODIAN AND THE CUSTODIAN IS NOT EMPTY
+                     //DISABLE EDITING
+                     //FOR TRACKS WITHOUT A CUSTODIAN, ENABLE EDITING. 
+                     /*
+                     if (key=='custodian' && properties[key]!='') {
+                         input.disabled=true;
+                         input.contentEditable = 'false';
+                     }
+                     */

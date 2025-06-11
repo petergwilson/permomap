@@ -2,7 +2,7 @@
   "name": "permomap",
   "version": "1.0.0",
   "description": "Permolat Mapping System",
-  "main": "src/main.js",
+  "main": "src/main.mjs",
   "scripts": {
     "start": "vite",
     "build": "vite build",
@@ -23,7 +23,7 @@
     "express-session": "^1.18.1",
     "ice": "^3.7.100",
     "nytimes-ice": "^0.6.3",
-    "ol": "latest",
+    "ol": "^10.5.0",
     "pg": "^8.16.0"
   }
 }
