@@ -244,7 +244,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
 
   const googleLayer = new Layer({
     source: new Google({
-      key: 'AIzaSyDkuLZf-kPmnunxBQYzszlHy6eYc4PcUYQ',
+      key: 'put key here',
       mapType: 'satellite', // or 'hybrid', 'terrain'
       scale: 'scaleFactor2x',
       highDpi: true,
