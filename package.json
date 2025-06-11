@@ -10,7 +10,7 @@
   },
   "devDependencies": {
     "@babel/cli": "^7.27.2",
-    "@babel/core": "^7.27.3",
+    "@babel/core": "^7.27.4",
     "sass-embedded": "^1.89.0",
     "vite": "^6.3.5"
   },
