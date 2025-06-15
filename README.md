@@ -73,11 +73,17 @@ The api routes to the server middleware are in vite.config.js as well.
 ### Running database locally
 
 Install Postgresql (should work with versions above 17) as you will need JSON support.
-Install Postgis, latest version. 
+These instructions below are all for Debian based Linux systems. Can someone please add some build instructions for Windows (or even WSL2), as I know people are using windows a bit. 
+```shell
+apt-get install postgresql-server-17
+apt-get install postgis3
+ 
 Open up port 5432, to local traffic
+
 Install pg_featurserv, instructions here:
 
 https://github.com/CrunchyData/pg_featureserv
+
 Open up port 9000 (HTTP for pg_featurserv), also port 9050 (or your choice) for HTTPS, if you want secure services (probably not needed for localhost
 
 A sample pg_config
