@@ -50,13 +50,64 @@ Built with Javascript, running on NodeJS, with Postgresql running Postgis, using
 
 ## Development
 
-### Running locally
+### Running frontend (webserver) locally
+
+Ensure you have node and npm installed, at least version 16. 
+The node_modules for the client are at ./node_modules
+Currently using vite as a development environment, running on port 5431 (default HTTP port for vite)
+
+Make sure that the layer URLs match your database settings, see below. 
+You will need your own API key for external layers from the LINZ Data Service, please get from https://data.linz.govt.nz/ 
 
 ```shell
-npm install
-npm run build
-npm run start
+npm start - to spin up a vite server on localhost
+npm run build - currently builds to ./dist.
+
+If you are building to ./dist, please check vite.config.js to ensure that the base of the url is correct for your setup.
+This seems to be causing endless issues I'd like to understand more.
+
+The api routes to the server middleware are in vite.config.js as well. 
+
+
 ```
+### Running database locally
+
+Install Postgresql (should work with versions above 17) as you will need JSON support.
+Install Postgis, latest version. 
+Open up port 5432, to local traffic
+Install pg_featurserv, instructions here:
+
+https://github.com/CrunchyData/pg_featureserv
+Open up port 9000 (HTTP for pg_featurserv), also port 9050 (or your choice) for HTTPS, if you want secure services (probably not needed for localhost
+
+A sample pg_config
+
+Testing data:
+
+Download the testing data from ./sql:
+permolat_tracks.sql
+
+The sql is in pg_dump custom format (-Fc) so needs pg_restore to load
+
+pg_restore -U <username> -d <database_name> -t permolat_tracks permolat_tracks_june12.sql
+
+PLEASE NOTE THAT THIS IS TEST DATA ONLY, NOT FOR PUBLIC CONSUMPTION
+
+### Running backend locally
+
+The backend server is required to run the middleware to connect to the database, maintain state/cookies etc
+It runs on port 3000. You will need to make sure this port is open to at least localhost:XXXX (usually 5173) with appropriate firewall settings
+The server node-modules are in ./backend/node_modules. These are currently stored separately from the main application.
+
+Make sure that the URLs in server.js match the your database settings above. The application won't serve layers without this. 
+
+To run the backend, node server.js
+
+You could build the backend before runnning it, but I haven't done this so far, as the modules for it are separate to the rest of the project. 
 
 Note that you need the Postgres DB running on your machine as well. 
-Instruction for running this have not been created yet.
+
+## Production
+
+Alpha production testing is currently running on an Ubuntu 22 instance (Azure cloud), using Apache2 as the webserver, Node for the backend, an optimised pg_featureserv instance as the geoserver, and Postgresql 17 as the database. 
+
