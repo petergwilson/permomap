@@ -48,3 +48,15 @@ Built with Javascript, running on NodeJS, with Postgresql running Postgis, using
 * Web services running on Apache2 webserver, running on Azure VM, hosted by Peter Wilson
 * HTML/Javascript code in /frontend
 
+## Development
+
+### Running locally
+
+```shell
+npm install
+npm run build
+npm run start
+```
+
+Note that you need the Postgres DB running on your machine as well. 
+Instruction for running this have not been created yet.
