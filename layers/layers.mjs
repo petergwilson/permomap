@@ -46,7 +46,7 @@ LayerManager.addMapLayers([
         layer: new VectorLayer({
             source: new VectorSource({
                 format: new GeoJSON(),
-                url: 'http://localhost:9050/collections/public.nz_primary_parcels/items.json',
+                url: 'http://localhost:9000/collections/public.nz_primary_parcels/items.json',
             }),
         visible: true
         })
@@ -63,7 +63,7 @@ LayerManager.addFeatureLayer([
         layer: new VectorLayer({
             source: new VectorSource({
                 format: new GeoJSON(),
-                url: 'http://localhost:9050/collections/public.parcels_3857/items.json?filter=live=true',
+                url: 'http://localhost:9000/collections/public.parcels_3857/items.json?filter=live=true',
             }),
         visible: true
         })
