@@ -21,8 +21,8 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:pass@postgres/permolatmap
     ports:
+      # Not using HTTPS on port 9050 here because it's not worth having to setup a TLS certificate for local dev
       - '9000:9000'
-      - '9050:9050'
     depends_on:
       postgres:
         condition: service_healthy
