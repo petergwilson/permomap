@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgis/postgis:17-3.4
     environment:
-      POSTGRES_PASSWORD: pass
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: permolatmap
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -19,7 +19,7 @@ services:
   pg_featureserv:
     image: pramsey/pg_featureserv:latest
     environment:
-      DATABASE_URL: postgresql://postgres:pass@postgres/permolatmap
+      DATABASE_URL: postgresql://postgres:postgres@postgres/permolatmap
     ports:
       # Not using HTTPS on port 9050 here because it's not worth having to setup a TLS certificate for local dev
       - '9000:9000'

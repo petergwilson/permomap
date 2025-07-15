@@ -13,10 +13,10 @@ import express from 'express';
 import { Pool } from 'pg';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
-import bcrypt from 'bcryptjs';
+// import bcrypt from 'bcryptjs';
 
 import cookieParser from 'cookie-parser';
-import cors from 'cors';
+// import cors from 'cors';
 //import multer from 'multer';
 
 const app = express();
@@ -24,13 +24,14 @@ const app = express();
 //Port for the application, either process.env.PORT variable or 3000
 //process.env.PORT may be able to be set at run time, don't know
 const PORT = process.env.PORT || 3000;
+const DATABASE_NAME = process.env.DATABASE_NAME || 'gis';
 
 // PostgreSQL connection info
 //Adjust if necessary if database parameters change
 //FOR INSTANCE, production server database name is "postgres", testing version "gis"
 //FIX THIS OR BRING IN DEPLOYMENT BUILD LOGIC
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/gis',
+  connectionString: process.env.DATABASE_URL || `postgresql://postgres:postgres@localhost:5432/${DATABASE_NAME}`,
 });
 
 //Session and cookie variables
