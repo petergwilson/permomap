@@ -5,6 +5,7 @@
   "main": "src/main.mjs",
   "scripts": {
     "start": "vite",
+    "start:server": "node backend/server.mjs",
     "build": "vite build",
     "serve": "vite preview"
   },
