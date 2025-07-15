@@ -226,7 +226,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     source: new VectorSource({
         //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
         //CAN BE CHANGED
-        url: 'http://localhost:9050/collections/public.doc_huts/items.json?limit=1000',
+        url: 'http://localhost:9000/collections/public.doc_huts/items.json?limit=1000',
         format: new GeoJSON(),
         wrapX: false,
         name: 'DOC Huts',
@@ -376,7 +376,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         source: new VectorSource({
             //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
             //CAN BE CHANGED
-            url: 'http://localhost:9050/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=status=%27pending%27',
+            url: 'http://localhost:9000/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=status=%27pending%27',
             format: new GeoJSON(),
             wrapX: false,
             name: 'permolat_tracks',
@@ -433,7 +433,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     source: new VectorSource({
         //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
         //CAN BE CHANGED
-        url: 'http://localhost:9050/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=status=%27live%27',
+        url: 'http://localhost:9000/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=status=%27live%27',
         format: new GeoJSON(),
         wrapX: false,
         name: 'permolat_tracks',
@@ -446,7 +446,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     const pg_doc = new VectorLayer({
         // /background: 'white',
         source: new VectorSource({
-            url: 'http://localhost:9050/collections/public.doc_tracks/items.json?limit=1000',
+            url: 'http://localhost:9000/collections/public.doc_tracks/items.json?limit=1000',
             format: new GeoJSON(),
             wrapX: false,
             //projection: 'EPSG:2193',
