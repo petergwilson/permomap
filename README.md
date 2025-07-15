@@ -50,6 +50,25 @@ Built with Javascript, running on NodeJS, with Postgresql running Postgis, using
 
 ## Development
 
+### (Recommended) Running with docker
+
+Prerequisites:
+- Docker Desktop: https://docs.docker.com/desktop/
+- Node >=16: https://nodejs.org/en/download
+  - NPM >=8: Should be installed as part of Node
+
+Installing (only need to run once):
+- `npm install`
+
+Running:
+- `docker compose up -d`
+- `npm run start:server`
+- `npm run start`
+
+In your browser, open http://localhost:5174/permomap/
+
+Hopefully, this should _just work_.
+
 ### Running frontend (webserver) locally
 
 Ensure you have node and npm installed, at least version 16. 
