@@ -50,6 +50,25 @@ Built with Javascript, running on NodeJS, with Postgresql running Postgis, using
 
 ## Development
 
+### (Recommended) Running with docker
+
+Prerequisites:
+- Docker Desktop: https://docs.docker.com/desktop/
+- Node >=16: https://nodejs.org/en/download
+  - NPM >=8: Should be installed as part of Node
+
+Installing (only need to run once):
+- `npm install`
+
+Running:
+- `docker compose up -d`
+- `npm run start:server`
+- `npm run start`
+
+In your browser, open http://localhost:5174/permomap/
+
+Hopefully, this should _just work_.
+
 ### Running frontend (webserver) locally
 
 Ensure you have node and npm installed, at least version 16. 
@@ -60,8 +79,9 @@ Make sure that the layer URLs match your database settings, see below.
 You will need your own API key for external layers from the LINZ Data Service, please get from https://data.linz.govt.nz/ 
 
 ```shell
-npm start - to spin up a vite server on localhost
-npm run build - currently builds to ./dist.
+npm start # to spin up a vite server on localhost
+npm run build # currently builds to ./dist.
+```
 
 If you are building to ./dist, please check vite.config.js to ensure that the base of the url is correct for your setup.
 This seems to be causing endless issues I'd like to understand more.
@@ -69,7 +89,6 @@ This seems to be causing endless issues I'd like to understand more.
 The api routes to the server middleware are in vite.config.js as well. 
 
 
-```
 ### Running database locally
 
 Install Postgresql (should work with versions above 17) as you will need JSON support.
@@ -77,6 +96,7 @@ These instructions below are all for Debian based Linux systems. Can someone ple
 ```shell
 apt-get install postgresql-server-17
 apt-get install postgis3
+```
  
 Open up port 5432, to local traffic
 
@@ -90,12 +110,14 @@ A sample pg_config
 
 Testing data:
 
-Download the testing data from ./sql:
-permolat_tracks.sql
+Download the testing data from `./sql`:
+`permolat_tracks.sql`
 
 The sql is in pg_dump custom format (-Fc) so needs pg_restore to load
 
+```shell
 pg_restore -U <username> -d <database_name> -t permolat_tracks permolat_tracks_june12.sql
+```
 
 PLEASE NOTE THAT THIS IS TEST DATA ONLY, NOT FOR PUBLIC CONSUMPTION
 

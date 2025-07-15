@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgis/postgis:17-3.4
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: permolatmap
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./permolat_tracks_june12.sql:/docker-entrypoint-initdb.d/permolat_tracks_june12.sql
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d permolatmap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pg_featureserv:
+    image: pramsey/pg_featureserv:latest
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres/permolatmap
+    ports:
+      # Not using HTTPS on port 9050 here because it's not worth having to setup a TLS certificate for local dev
+      - '9000:9000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
