@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "@babel/cli": "^7.27.2",
-    "@babel/core": "^7.27.3",
+    "@babel/core": "^7.28.0",
     "cross-env": "^7.0.3",
     "sass-embedded": "^1.89.0",
     "vite": "^6.3.5"
