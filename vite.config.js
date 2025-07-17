@@ -2,6 +2,9 @@
     import { defineConfig } from 'vite';
 
     export default defineConfig({
+      define: {
+        'import.meta.env.FEATURE_SERVER_PORT': JSON.stringify(process.env.FEATURE_SERVER_PORT || '9000'),
+      },
       server: {
         proxy: {
           '/api/save': 'http://localhost:3000',

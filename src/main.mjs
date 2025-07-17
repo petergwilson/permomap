@@ -1,11 +1,15 @@
-    // Core OpenLayers
-    import 'ol/ol.css';
-    import { Map, View } from 'ol';
-    import { fromLonLat } from 'ol/proj';
-    import { get as getProjection } from 'ol/proj';
-    import { defaults as defaultControls } from 'ol/control';
-    import { platformModifierKeyOnly, altShiftKeysOnly, shiftKeyOnly, targetNotEditable } from 'ol/events/condition';
-    import { defaults as defaultInterctions, MouseWheelZoom, DragPan, DragRotate, KeyboardZoom, KeyboardPan } from 'ol/interaction';
+// Core OpenLayers
+import 'ol/ol.css';
+import { Map, View } from 'ol';
+import { fromLonLat } from 'ol/proj';
+import { get as getProjection } from 'ol/proj';
+import { defaults as defaultControls } from 'ol/control';
+import { platformModifierKeyOnly, altShiftKeysOnly, shiftKeyOnly, targetNotEditable } from 'ol/events/condition';
+import { defaults as defaultInterctions, MouseWheelZoom, DragPan, DragRotate, KeyboardZoom, KeyboardPan } from 'ol/interaction';
+
+// Feature server configuration
+const FEATURE_SERVER_PORT = import.meta.env.FEATURE_SERVER_PORT || 9050;
+const FEATURE_SERVER_URL = `http://localhost:${FEATURE_SERVER_PORT}`;
     
 
     //NYT/ICE Editing library
@@ -226,7 +230,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     source: new VectorSource({
         //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
         //CAN BE CHANGED
-        url: 'http://localhost:9000/collections/public.doc_huts/items.json?limit=1000',
+        url: `${FEATURE_SERVER_URL}/collections/public.doc_huts/items.json?limit=1000`,
         format: new GeoJSON(),
         wrapX: false,
         name: 'DOC Huts',
@@ -376,7 +380,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         source: new VectorSource({
             //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
             //CAN BE CHANGED
-            url: 'http://localhost:9000/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=status=%27pending%27',
+            url: `${FEATURE_SERVER_URL}/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=status=%27pending%27`,
             format: new GeoJSON(),
             wrapX: false,
             name: 'permolat_tracks',
@@ -433,7 +437,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     source: new VectorSource({
         //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
         //CAN BE CHANGED
-        url: 'http://localhost:9000/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=status=%27live%27',
+        url: `${FEATURE_SERVER_URL}/collections/public.permolat_tracks/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian,next_id,prev_id,history&filter=status=%27live%27`,
         format: new GeoJSON(),
         wrapX: false,
         name: 'permolat_tracks',
@@ -446,7 +450,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     const pg_doc = new VectorLayer({
         // /background: 'white',
         source: new VectorSource({
-            url: 'http://localhost:9000/collections/public.doc_tracks/items.json?limit=1000',
+            url: `${FEATURE_SERVER_URL}/collections/public.doc_tracks/items.json?limit=1000`,
             format: new GeoJSON(),
             wrapX: false,
             //projection: 'EPSG:2193',
@@ -1275,4 +1279,3 @@ document.head.appendChild(style_control_rollback);
 
         
     }
-
