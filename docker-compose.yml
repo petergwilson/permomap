@@ -1,15 +1,16 @@
 services:
   postgres:
-    image: postgis/postgis:17-3.4
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: permolatmap
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./permolat_tracks_june12.sql:/docker-entrypoint-initdb.d/permolat_tracks_june12.sql
-      - ./sql-dumps/permomap_dev_dump_20250706.sql_dump:/docker-entrypoint-initdb.d/permomap_dev_dump_20250706.sql_dump
-      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+      - ./seed-data/permolat_tracks.sql:/docker-entrypoint-initdb.d/permolat_tracks.sql
+      - ./seed-data/doc-huts.geojson:/docker-entrypoint-initdb.d/doc-huts.geojson
     ports:
       - '5432:5432'
     healthcheck:
@@ -30,6 +31,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        restart: true
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9000/healthcheck || exit 1"]
       interval: 30s
