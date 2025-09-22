@@ -4,17 +4,17 @@
   "description": "Permolat Mapping System",
   "main": "src/main.mjs",
   "scripts": {
-    "start": "cross-env FEATURE_SERVER_PORT=9000 vite",
+    "start": "concurrently --names \"CLIENT,SERVER,DOCKER\" --prefix-colors \"cyan,green,yellow\" \"npm run start:client\" \"npm run start:server\" \"npm run start:docker\"",
+    "start:client": "cross-env FEATURE_SERVER_PORT=9000 vite",
     "start:server": "cross-env DATABASE_NAME=permolatmap node backend/server.mjs",
     "start:docker": "cross-env FEATURE_SERVER_PORT=9000 docker compose up -d",
-    "start:server": "cross-env DATABASE_NAME=permolatmap node backend/server.mjs",
-    "start:docker": "docker compose up -d",
     "build": "vite build",
     "serve": "vite preview"
   },
   "devDependencies": {
     "@babel/cli": "^7.27.2",
     "@babel/core": "^7.27.3",
+    "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
     "sass-embedded": "^1.89.0",
     "vite": "^6.3.5"
