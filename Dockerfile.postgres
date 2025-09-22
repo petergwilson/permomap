@@ -1,0 +1,9 @@
+FROM postgis/postgis:17-3.4
+
+# Install GDAL tools at build time
+RUN apt-get update && \
+    apt-get install -y gdal-bin && \
+    apt-get clean
+
+# Copy initialization scripts
+COPY 20_init-db.sh /docker-entrypoint-initdb.d/

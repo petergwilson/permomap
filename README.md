@@ -129,7 +129,7 @@ Download the testing data from `./sql`:
 The sql is in pg_dump custom format (-Fc) so needs pg_restore to load
 
 ```shell
-pg_restore -U <username> -d <database_name> -t permolat_tracks permolat_tracks_june12.sql
+pg_restore -U <username> -d <database_name> -t permolat_tracks permolat_tracks.sql
 ```
 
 PLEASE NOTE THAT THIS IS TEST DATA ONLY, NOT FOR PUBLIC CONSUMPTION
@@ -151,3 +151,9 @@ Note that you need the Postgres DB running on your machine as well.
 ## Production
 
 Alpha production testing is currently running on an Ubuntu 22 instance (Azure cloud), using Apache2 as the webserver, Node for the backend, an optimised pg_featureserv instance as the geoserver, and Postgresql 17 as the database.
+
+## Attribution
+
+DOC huts data sourced from https://catalogue.data.govt.
+nz/dataset/doc-huts4/resource/bbfe4bff-2125-420d-823f-5be799d68862 under Creative Commons Attribution 4.0 
+International license
