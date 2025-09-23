@@ -62,12 +62,6 @@ Prerequisites:
 - Node >=16: https://nodejs.org/en/download
   - NPM >=8: Should be installed as part of Node
 
-**Important**: For full database functionality, you'll need the development database dump file:
-- Place `permomap_dev_dump_20250706.sql_dump` in the `./sql-dumps/` directory
-- This file is not committed to git due to its size and contains development data
-- Contact the project maintainers to obtain this file
-- The system will still work without it, but only with the basic permolat_tracks data
-
 Installing (only need to run once):
 
 - `npm install`
