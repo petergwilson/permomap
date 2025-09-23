@@ -19,14 +19,14 @@ exporters:
     verbosity: detailed
   # Prometheus for metrics
   prometheus:
-    endpoint: "0.0.0.0:8889"
+    endpoint: '0.0.0.0:8889'
     const_labels:
-      service: "permomap"
+      service: 'permomap'
   # OTLP HTTP exporter for Loki - DISABLED
   otlphttp:
     endpoint: http://0.0.0.0:3100/otlp
   otlphttp/jaeger:
-    endpoint: "http://jaeger:4318" # URL for Jaeger's OTLP HTTP receiver
+    endpoint: http://jaeger:3829/otlp
     tls:
       insecure: true
 
@@ -40,15 +40,15 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-#      processors: [memory_limiter, batch]
+      #      processors: [memory_limiter, batch]
       exporters: [otlphttp/jaeger, debug]
     metrics:
       receivers: [otlp]
-#      processors: [memory_limiter, batch]
+      #      processors: [memory_limiter, batch]
       exporters: [prometheus]
     logs:
       receivers: [otlp]
-#      processors: [memory_limiter, batch]
+      #      processors: [memory_limiter, batch]
       exporters: [otlphttp, debug]
 
   extensions: []
