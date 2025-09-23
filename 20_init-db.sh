@@ -20,7 +20,7 @@ echo "PostGIS extension created, restoring database from dumps..."
 # First restore the permolat_tracks dump file
 if [ -f "/docker-entrypoint-initdb.d/permolat_tracks.dump" ]; then
   echo "Restoring permolat_tracks table from permolat_tracks.dump..."
-  pg_restore -U postgres -d permolatmap -t permolat_tracks /docker-entrypoint-initdb.d/permolat_tracks.dump
+  pg_restore -Fc --verbose -U postgres -d permolatmap /docker-entrypoint-initdb.d/permolat_tracks.dump
   echo "Restoration of permolat_tracks table completed."
 else
   echo "permolat_tracks.dump file not found."

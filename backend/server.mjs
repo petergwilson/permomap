@@ -45,6 +45,7 @@ const PgSessionStore = connectPgSimple(session);
 const store = new PgSessionStore({
   pool: pool,
   tableName: 'permomap_session', //pg table name for session information
+  createTableIfMissing: true, // Automatically create the session table if it doesn't exist
 });
 
 const sessionMiddleware=session({
