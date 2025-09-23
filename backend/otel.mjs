@@ -3,16 +3,15 @@
  * This file must be imported before any other modules to ensure proper instrumentation
  */
 
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
-import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
-import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
-import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
-import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
-import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
+import {NodeSDK} from '@opentelemetry/sdk-node';
+import {OTLPTraceExporter} from '@opentelemetry/exporter-trace-otlp-http';
+import {OTLPMetricExporter} from '@opentelemetry/exporter-metrics-otlp-http';
+import {OTLPLogExporter} from '@opentelemetry/exporter-logs-otlp-http';
+import {ExpressInstrumentation} from '@opentelemetry/instrumentation-express';
+import {HttpInstrumentation} from '@opentelemetry/instrumentation-http';
+import {PgInstrumentation} from '@opentelemetry/instrumentation-pg';
+import {PeriodicExportingMetricReader} from '@opentelemetry/sdk-metrics';
+import {SemanticResourceAttributes} from '@opentelemetry/semantic-conventions';
 import {resourceFromAttributes} from "@opentelemetry/resources";
 
 // Configure the resource with service information
@@ -42,14 +41,12 @@ const metricReader = new PeriodicExportingMetricReader({
 });
 
 // Configure log processor
-const logProcessor = new BatchLogRecordProcessor(logExporter);
-
 // Initialize the SDK with auto-instrumentations
 const sdk = new NodeSDK({
   resource,
   traceExporter,
   metricReader,
-  logRecordProcessors: [logProcessor],
+  logRecordProcessors: [logExporter],
   instrumentations: [
     new HttpInstrumentation({
       // Configure HTTP instrumentation
