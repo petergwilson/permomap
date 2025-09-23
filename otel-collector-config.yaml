@@ -15,21 +15,20 @@ processors:
     check_interval: 15
 
 exporters:
-
+  debug:
+    verbosity: detailed
   # Prometheus for metrics
   prometheus:
     endpoint: "0.0.0.0:8889"
     const_labels:
       service: "permomap"
-
-  # Loki for logs - DISABLED
-#  loki:
-#    endpoint: http://loki:3100/loki/api/v1/push
-#    tenant_id: "permomap"
-  
   # OTLP HTTP exporter for Loki - DISABLED
-#  otlphttp:
-#    endpoint: http://0.0.0.0:3100/otlp
+  otlphttp:
+    endpoint: http://0.0.0.0:3100/otlp
+  otlphttp/jaeger:
+    endpoint: "http://jaeger:4318" # URL for Jaeger's OTLP HTTP receiver
+    tls:
+      insecure: true
 
   # Jaeger exporter - DISABLED
 #  jaeger:
@@ -39,21 +38,17 @@ exporters:
 
 service:
   pipelines:
-    # Traces pipeline - DISABLED (no exporters)
-#    traces:
-#      receivers: [otlp]
+    traces:
+      receivers: [otlp]
 #      processors: [memory_limiter, batch]
-#      exporters: []
-
+      exporters: [otlphttp/jaeger, debug]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [prometheus]
-
-    # Logs pipeline - DISABLED (no exporters)
-#    logs:
-#      receivers: [otlp]
 #      processors: [memory_limiter, batch]
-#      exporters: []
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+#      processors: [memory_limiter, batch]
+      exporters: [otlphttp, debug]
 
   extensions: []

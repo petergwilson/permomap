@@ -50,10 +50,9 @@ services:
       - "4317:4317"   # OTLP gRPC receiver
       - "4318:4318"   # OTLP HTTP receiver
       - "8889:8889"   # Prometheus metrics endpoint
-    # Dependencies removed - only using metrics (Prometheus)
-    # depends_on:
-    #   - jaeger
-    #   - loki
+    depends_on:
+       - jaeger
+       - loki
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:13133/"]
       interval: 30s
@@ -68,7 +67,6 @@ services:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
       - "16686:16686"  # Jaeger UI
-      - "14250:14250"  # gRPC
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:16686/"]
       interval: 30s
