@@ -37,4 +37,13 @@ else
   echo "doc-huts.geojson file not found."
 fi
 
+echo "Loading DOC tracks GeoJSON data..."
+if [ -f "/docker-entrypoint-initdb.d/doc-tracks.geojson" ]; then
+  echo "Loading doc-tracks.geojson into database..."
+  ogr2ogr -f "PostgreSQL" PG:"dbname=permolatmap user=postgres" "/docker-entrypoint-initdb.d/doc-tracks.geojson" -nln doc_tracks -lco GEOMETRY_NAME=geom -lco FID=gid -overwrite
+  echo "DOC tracks data loaded successfully."
+else
+  echo "doc-tracks.geojson file not found."
+fi
+
 echo "All database initialization tasks completed."

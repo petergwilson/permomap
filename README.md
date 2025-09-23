@@ -154,6 +154,6 @@ Alpha production testing is currently running on an Ubuntu 22 instance (Azure cl
 
 ## Attribution
 
-DOC huts data sourced from https://catalogue.data.govt.
-nz/dataset/doc-huts4/resource/bbfe4bff-2125-420d-823f-5be799d68862 under Creative Commons Attribution 4.0 
-International license
+DOC huts data sourced from https://catalogue.data.govt.nz/dataset/doc-huts4/resource/bbfe4bff-2125-420d-823f-5be799d68862 under Creative Commons Attribution 4.0 International license
+
+DOC track data sourced from https://catalogue.data.govt.nz/dataset/doc-tracks8 under Creative Commons Attribution 4.0 International license
