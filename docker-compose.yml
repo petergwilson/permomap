@@ -11,6 +11,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./seed-data/permolat_tracks.sql:/docker-entrypoint-initdb.d/permolat_tracks.sql
       - ./seed-data/doc-huts.geojson:/docker-entrypoint-initdb.d/doc-huts.geojson
+      - ./seed-data/doc-tracks.geojson:/docker-entrypoint-initdb.d/doc-tracks.geojson
     ports:
       - '5432:5432'
     healthcheck:
