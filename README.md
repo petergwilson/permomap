@@ -124,12 +124,12 @@ A sample pg_config
 Testing data:
 
 Download the testing data from `./sql`:
-`permolat_tracks.sql`
+`permolat_tracks.dump`
 
-The sql is in pg_dump custom format (-Fc) so needs pg_restore to load
+The dump is in pg_dump custom format (-Fc) so needs pg_restore to load
 
 ```shell
-pg_restore -U <username> -d <database_name> -t permolat_tracks permolat_tracks.sql
+pg_restore -U <username> -d <database_name> -t permolat_tracks permolat_tracks.dump
 ```
 
 PLEASE NOTE THAT THIS IS TEST DATA ONLY, NOT FOR PUBLIC CONSUMPTION
