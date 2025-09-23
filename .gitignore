@@ -2,3 +2,5 @@ node_modules
 dist
 sql/*
 layers/*
+/.idea/
+/sql-dumps/
