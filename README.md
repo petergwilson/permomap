@@ -103,7 +103,11 @@ The api routes to the server middleware are in vite.config.js as well.
 
 ### Running database locally
 
-Install Postgresql (should work with versions above 17) as you will need JSON support.
+Install Postgresql (should work with versions above 17) as you will need JSON support. 
+**May be a breaking change with Postgresql 18 native support for JSON, alpha test uses CTE approaches for JSON**
+
+Check sql.md for any changes/updates to SQL schema. Also planned to put regular dumps of the sql on here, mainly for safe-keeping and sustainability. 
+
 These instructions below are all for Debian based Linux systems. Can someone please add some build instructions for Windows (or even WSL2), as I know people are using windows a bit.
 
 ```shell
