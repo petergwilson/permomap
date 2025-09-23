@@ -6,7 +6,7 @@ Table structure
 ##permolat_tracks
 --primary tracks layer
 --insert details here
-CREATE TABLE permolat_tracks_edits
+ALTER TABLE permolat_tracks
 ADD COLUMN multiple_status boolean DEFAULT false -- enables the association with overlays,
 ADD COLUMN status_overlay_links integer[] -- links to geometry_overlays
 ADD COLUMN existing_track_info_field_links[] --- links to permolat_tracks_edit_table for each of the editable columns, client will default to the existing text in absence of any links in the link_tables, 
