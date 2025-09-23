@@ -19,6 +19,13 @@ import connectPgSimple from 'connect-pg-simple';
 // import bcrypt from 'bcryptjs';
 
 import cookieParser from 'cookie-parser';
+
+// Import OpenTelemetry API for custom logging
+import sdkNode from '@opentelemetry/api';
+const {trace} = sdkNode
+
+// Create a logger instance
+const tracer = trace.getTracer('permomap-server', '1.0.0');
 // import cors from 'cors';
 //import multer from 'multer';
 
@@ -83,34 +90,104 @@ app.use(express.json({ type: 'application/json' }));
  */
 
 app.post('/api/login', async (req, res) => {
-  console.log(JSON.stringify(req.body));
+  const startTime = Date.now();
+  const requestId = `login_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Create a custom span for the login operation
+  const span = tracer.startSpan('login_operation', {
+    attributes: {
+      'http.method': 'POST',
+      'http.route': '/api/login',
+      'request.id': requestId,
+      'user.attempted_username': req.body.username || 'unknown'
+    }
+  });
 
-  //const { username, password } = req.body;
-  //Get info from permomap_users table
-  const user = await pool.query(
-    'SELECT username,password,role,userid FROM permomap_users WHERE username = $1',
-    [req.body.username]
-  );
-  //Check to see if passwords match
-  if (user.rows.length > 0 && req.body.password == user.rows[0].password) {
-    //USER TABLE WILL NEED A USERID-NOT SAME AS USERNAME BUT COULD BE
-    //Sets the session userId and username to that saved in the databasel
-    req.session.userid = user.rows[0].userid;
-    req.session.username = user.rows[0].username;
-    req.session.role = user.rows[0].role;
+  try {
+    // Log the start of login attempt
+    console.log(JSON.stringify(req.body));
 
-    const data = {
-      ok: true,
-      message: 'Login successful',
-      username: user.rows[0].username,
-      userid: user.rows[0].userid,
-      role: user.rows[0].role,
-      status: 200,
-    };
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(data));
-  } else {
-    res.status(401).json({ ok: false, message: 'Invalid credentials' });
+    // Add span event for database query start
+    span.addEvent('database_query_start', {
+      'query.type': 'user_lookup',
+      'query.table': 'permomap_users'
+    });
+
+    //Get info from permomap_users table
+    const user = await pool.query(
+      'SELECT username,password,role,userid FROM permomap_users WHERE username = $1',
+      [req.body.username]
+    );
+
+    // Add span event for database query completion
+    span.addEvent('database_query_complete', {
+      'query.result_count': user.rows.length,
+      'query.duration_ms': Date.now() - startTime
+    });
+
+    //Check to see if passwords match
+    if (user.rows.length > 0 && req.body.password == user.rows[0].password) {
+      //USER TABLE WILL NEED A USERID-NOT SAME AS USERNAME BUT COULD BE
+      //Sets the session userId and username to that saved in the database
+      req.session.userid = user.rows[0].userid;
+      req.session.username = user.rows[0].username;
+      req.session.role = user.rows[0].role;
+
+      const data = {
+        ok: true,
+        message: 'Login successful',
+        username: user.rows[0].username,
+        userid: user.rows[0].userid,
+        role: user.rows[0].role,
+        status: 200,
+      };
+
+      // Add span attributes for successful login
+      span.setAttributes({
+        'login.status': 'success',
+        'user.username': user.rows[0].username,
+        'user.role': user.rows[0].role,
+        'response.status_code': 200
+      });
+
+      span.addEvent('login_success', {
+        'user.username': user.rows[0].username,
+        'user.role': user.rows[0].role
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } else {
+      // Add span attributes for failed login
+      span.setAttributes({
+        'login.status': 'failed',
+        'login.failure_reason': 'invalid_credentials',
+        'response.status_code': 401,
+        'error': true
+      });
+
+      span.addEvent('login_failure', {
+        'failure_reason': 'invalid_credentials',
+        'user_found': user.rows.length > 0 ? 'true' : 'false'
+      });
+
+      res.status(401).json({ ok: false, message: 'Invalid credentials' });
+    }
+  } catch (error) {
+    // Log error during login process
+    // Record error in span
+    span.recordException(error);
+    span.setAttributes({
+      'login.status': 'error',
+      'error': true,
+      'error.message': error.message,
+      'response.status_code': 500
+    });
+
+    res.status(500).json({ ok: false, message: 'Internal server error' });
+  } finally {
+    // End the span
+    span.end();
   }
 });
 
