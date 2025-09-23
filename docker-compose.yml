@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: permolatmap
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./seed-data/permolat_tracks.sql:/docker-entrypoint-initdb.d/permolat_tracks.sql
+      - ./seed-data/permolat_tracks.dump:/docker-entrypoint-initdb.d/permolat_tracks.dump
       - ./seed-data/doc-huts.geojson:/docker-entrypoint-initdb.d/doc-huts.geojson
       - ./seed-data/doc-tracks.geojson:/docker-entrypoint-initdb.d/doc-tracks.geojson
     ports:
