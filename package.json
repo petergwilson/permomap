@@ -4,10 +4,12 @@
   "description": "Permolat Mapping System",
   "main": "src/main.mjs",
   "scripts": {
-    "start": "concurrently --names \"CLIENT,SERVER,DOCKER\" --prefix-colors \"cyan,green,yellow\" \"npm run start:client\" \"npm run start:server\" \"npm run start:docker\"",
+    "start": "cross-env FEATURE_SERVER_PORT=9000 docker compose up --build",
+    "start:dev": "concurrently --names \"CLIENT,SERVER,DOCKER\" --prefix-colors \"cyan,green,yellow\" \"npm run start:client\" \"npm run start:server\" \"npm run start:docker-infra\"",
     "start:client": "cross-env FEATURE_SERVER_PORT=9000 vite",
     "start:server": "cross-env DATABASE_NAME=permolatmap node backend/server.mjs",
-    "start:docker": "cross-env FEATURE_SERVER_PORT=9000 docker compose up -d --build",
+    "start:docker-infra": "cross-env FEATURE_SERVER_PORT=9000 docker compose up -d --build postgres pg_featureserv otel-collector jaeger prometheus loki grafana",
+    "stop": "docker compose down",
     "build": "vite build",
     "serve": "vite preview"
   },
