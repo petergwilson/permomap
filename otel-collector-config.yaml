@@ -26,15 +26,9 @@ exporters:
   otlphttp:
     endpoint: http://0.0.0.0:3100/otlp
   otlphttp/jaeger:
-    endpoint: http://jaeger:3829/otlp
+    endpoint: http://jaeger:4318
     tls:
       insecure: true
-
-  # Jaeger exporter - DISABLED
-#  jaeger:
-#    endpoint: jaeger:14250
-#    tls:
-#      insecure: true
 
 service:
   pipelines:
