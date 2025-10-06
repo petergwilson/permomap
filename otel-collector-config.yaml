@@ -34,15 +34,15 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      #      processors: [memory_limiter, batch]
+      processors: [memory_limiter, batch]
       exporters: [otlphttp/jaeger, debug]
     metrics:
       receivers: [otlp]
-      #      processors: [memory_limiter, batch]
+      processors: [memory_limiter, batch]
       exporters: [prometheus]
     logs:
       receivers: [otlp]
-      #      processors: [memory_limiter, batch]
+      processors: [memory_limiter, batch]
       exporters: [otlphttp, debug]
 
   extensions: []
