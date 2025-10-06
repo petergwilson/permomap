@@ -68,13 +68,32 @@ Installing (only need to run once):
 
 Running:
 
-- `docker compose up -d`
+- `docker compose up -d --build`
 - `npm run start:server`
 - `npm run start`
 
 In your browser, open http://localhost:5174/permomap/
 
 Hopefully, this should _just work_.
+
+#### Observability Stack
+
+The Docker environment includes a complete observability stack for monitoring and debugging:
+
+- **Grafana** (http://localhost:3001): Dashboards and visualization
+  - Default login: admin/admin
+  - Pre-configured datasources for Prometheus and Jaeger
+- **Prometheus** (http://localhost:9090): Metrics collection and storage
+- **Jaeger** (http://localhost:16686): Distributed tracing and performance monitoring
+- **OpenTelemetry Collector** (http://localhost:4317): Telemetry data processing
+
+The application is instrumented with OpenTelemetry to automatically capture:
+- HTTP request traces
+- Database query performance
+- Application metrics
+- Structured logs
+
+All telemetry data flows through the OTEL Collector to the appropriate backend services.
 
 ### Running frontend (webserver) locally
 
@@ -115,18 +134,11 @@ Open up port 9000 (HTTP for pg_featurserv), also port 9050 (or your choice) for 
 
 A sample pg_config
 
-Testing data:
+#### Database Seeding
 
-Download the testing data from `./sql`:
-`permolat_tracks.dump`
+Testing data is available in the `./seed-data/` directory, and is seeded into the PostgresQL DB on startup.
 
-The dump is in pg_dump custom format (-Fc) so needs pg_restore to load
-
-```shell
-pg_restore -U <username> -d <database_name> -t permolat_tracks permolat_tracks.dump
-```
-
-PLEASE NOTE THAT THIS IS TEST DATA ONLY, NOT FOR PUBLIC CONSUMPTION
+**PLEASE NOTE THAT THIS IS TEST DATA ONLY, NOT FOR PUBLIC CONSUMPTION**
 
 ### Running backend locally
 
