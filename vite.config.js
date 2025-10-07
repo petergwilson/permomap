@@ -17,5 +17,5 @@
           '/api/get_session': 'http://localhost:3000',
         },
       },
-      base: "https://www.wilsonenv.nz/permomap/",
+      base: process.env.VITE_BASE_URL || "/",
     });

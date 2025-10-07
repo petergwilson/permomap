@@ -4,3 +4,4 @@ sql/*
 layers/*
 /.idea/
 /sql-dumps/
+/.env
