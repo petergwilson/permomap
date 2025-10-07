@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile.client
       args:
         FEATURE_SERVER_PORT: ${FEATURE_SERVER_PORT:-9000}
+        VITE_BASE_URL: ${VITE_BASE_URL:-/}
     restart: unless-stopped
     ports:
       - "5173:80"
