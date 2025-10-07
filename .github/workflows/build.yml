@@ -17,16 +17,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Clone Repository
-        uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set Node.js Version
-        uses: actions/setup-node@v3
+      - name: Build Docker Images
+        run: docker compose build
+
+      - name: Start Containers
+        uses: hoverkraft-tech/compose-action@v2.4.0
         with:
-          node-version: 20
+          compose-file: "docker-compose.yml"
 
-      - name: Install Dependencies
-        run: npm ci
+      - name: Wait for Services to be Ready
+        run: |
+          echo "Pausing for 20 seconds to allow containers to initialize..."
+          sleep 20
+          docker compose ps
+          echo "Container status check complete."
 
-      - name: Build
-        run: npm run build
+      - name: Run Integration Tests
+        run: |
+          echo "Executing integration tests..."

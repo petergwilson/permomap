@@ -62,25 +62,38 @@ Prerequisites:
 - Node >=16: https://nodejs.org/en/download
   - NPM >=8: Should be installed as part of Node
 
-**Important**: For full database functionality, you'll need the development database dump file:
-- Place `permomap_dev_dump_20250706.sql_dump` in the `./sql-dumps/` directory
-- This file is not committed to git due to its size and contains development data
-- Contact the project maintainers to obtain this file
-- The system will still work without it, but only with the basic permolat_tracks data
-
 Installing (only need to run once):
 
 - `npm install`
 
 Running:
 
-- `docker compose up -d`
+- `docker compose up -d --build`
 - `npm run start:server`
 - `npm run start`
 
 In your browser, open http://localhost:5174/permomap/
 
 Hopefully, this should _just work_.
+
+#### Observability Stack
+
+The Docker environment includes a complete observability stack for monitoring and debugging:
+
+- **Grafana** (http://localhost:3001): Dashboards and visualization
+  - Default login: admin/admin
+  - Pre-configured datasources for Prometheus and Jaeger
+- **Prometheus** (http://localhost:9090): Metrics collection and storage
+- **Jaeger** (http://localhost:16686): Distributed tracing and performance monitoring
+- **OpenTelemetry Collector** (http://localhost:4317): Telemetry data processing
+
+The application is instrumented with OpenTelemetry to automatically capture:
+- HTTP request traces
+- Database query performance
+- Application metrics
+- Structured logs
+
+All telemetry data flows through the OTEL Collector to the appropriate backend services.
 
 ### Running frontend (webserver) locally
 
@@ -125,18 +138,11 @@ Open up port 9000 (HTTP for pg_featurserv), also port 9050 (or your choice) for 
 
 A sample pg_config
 
-Testing data:
+#### Database Seeding
 
-Download the testing data from `./sql`:
-`permolat_tracks.sql`
+Testing data is available in the `./seed-data/` directory, and is seeded into the PostgresQL DB on startup.
 
-The sql is in pg_dump custom format (-Fc) so needs pg_restore to load
-
-```shell
-pg_restore -U <username> -d <database_name> -t permolat_tracks permolat_tracks.sql
-```
-
-PLEASE NOTE THAT THIS IS TEST DATA ONLY, NOT FOR PUBLIC CONSUMPTION
+**PLEASE NOTE THAT THIS IS TEST DATA ONLY, NOT FOR PUBLIC CONSUMPTION**
 
 ### Running backend locally
 
