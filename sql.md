@@ -1,4 +1,35 @@
 #SQL Schema
+
+As of 02 January 2026:
+
+Schema approach has been simplified, to avoid the need for array storage in database. 
+
+permomap_tracks - primary track layer
+permomap_track_versions - versions of the primary track layer that are in edit or awaiting approval by moderators
+
+The armchair software engineer/trampers' guide to track philosophy:
+===================================================================
+
+What on earth is a track? 
+
+Tracks are seemingly simple, yet deceptively hard to define. For most people, track is a line, a route between a start point and an end-point, between destinations. This might be a road-end, a hut, a campsite, 
+a river-crossing, or another feature like a mountain peak, a bushline, or between tracks (a junction of tracks). It is also something that you walk on, a track might be hard, soft, wide, stony, bumpy. It might be nearly a road, or in the other extreme, a barely visible set of indentations on the ground. It might not even be made by humans - an animal track. It may not have been made legally (noting here, that I don't necessarily link "legal" with "needed", or "useful'). It might be made for a different recreation than tramping - hunting/pest-control, mountain-biking, 4WDing, 
+
+The challenge lies in the seeming simplicity. If a track is user-defined, or trip-defined, its ephemeral, it exists for the purpose of that trip, and whilst many outdoor folk might agree on average what a track is, a 
+user-based approach to track definition will produce substantial edge cases. Whilst fine for cultural purposes, it would not work for engineering a database that is designed to withstand years, perhaps decades of use and differing interpretations of what a track might be. 
+
+DOC and other government agencies have a list of tracks, however, their list fluctuates based on policy and funding, and also, may not have a 
+
+A feature of tracks is that a "track" cannot always be fully defined, and does not have a consistent topological relationship across time/space.
+Think of the following scenarios:
+a) A track as an end to end  feature, from one point to another. 
+b) If so, what features - road end to hut, road end to river crossing, road-end to another road-end, via other tracks, based on a concept of a "trip"
+c) 
+
+
+
+
+
 As of 27 September 2025, thanks to David Rowley (most of my original thoughts made it too complicated):
 
 Examples:
