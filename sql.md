@@ -13,19 +13,65 @@ The armchair software engineer/trampers' guide to track philosophy:
 What on earth is a track? 
 
 Tracks are seemingly simple, yet deceptively hard to define. For most people, track is a line, a route between a start point and an end-point, between destinations. This might be a road-end, a hut, a campsite, 
-a river-crossing, or another feature like a mountain peak, a bushline, or between tracks (a junction of tracks). It is also something that you walk on, a track might be hard, soft, wide, stony, bumpy. It might be nearly a road, or in the other extreme, a barely visible set of indentations on the ground. It might not even be made by humans - an animal track. It may not have been made legally (noting here, that I don't necessarily link "legal" with "needed", or "useful'). It might be made for a different recreation than tramping - hunting/pest-control, mountain-biking, 4WDing, 
+a river-crossing, or another feature like a mountain peak, a bushline, or between tracks (a junction of tracks). It is also something that you walk on, a track might be hard, soft, wide, stony, bumpy. It might be nearly a road, or in the other extreme, a barely visible set of indentations on the ground. It might not even be made by humans - an animal track. It may not have been made legally (noting here, that I don't necessarily link "legal" with "needed", or "useful'). It might be made for  different recreation than tramping - hunting/pest-control, mountain-biking, 4WDing, farming, infrastructure, and so on. The mode of recreation or purpose defines the basket of things that might be a "track". A tramper looks for a different track to 4WDer might be looking for a "track", they are both physical features on the ground, but in the 4WD case it is wider and needs to support 4 wheels and a chassis. Broad agreement is possible on what a "track as physical feature is", with some overlap between the different types of use.  
 
-The challenge lies in the seeming simplicity. If a track is user-defined, or trip-defined, its ephemeral, it exists for the purpose of that trip, and whilst many outdoor folk might agree on average what a track is, a 
-user-based approach to track definition will produce substantial edge cases. Whilst fine for cultural purposes, it would not work for engineering a database that is designed to withstand years, perhaps decades of use and differing interpretations of what a track might be. 
+But what about a track as a route between a start point and end-point. This is "track as route". This sort of track might be a collection of many physical tracks, some parts of non-physical tracks. It might be the intended route of a person or group, it might be the actual route, it might exist culturally but not on the ground - "the five passes track in Mt Aspiring National Park" comes to mind here - few trampers would describe this as a track - it's a route, and trampers might get upset as it starts to develop tracking, or bits of physical track on the ground. But how can it be a "route" as well as a "track" - in engineering, "routing algorithm" would be closer. It's user defined - a layer on top of something physical. GPS software uses "routes" and "tracks/tracking" interchangeably here. 
 
-DOC and other government agencies have a list of tracks, however, their list fluctuates based on policy and funding, and also, may not have a 
+So there's really two types of tracks here - 
+1) a track as a visible physical feature on the ground, a category of widths, surfaces, types, which at one end blurs into the underlying terrain, and at the other end, blurs into a road (noting, many highway standard roads are called "tracks"). 
+2) a track as a set of instructions, intention (routing algorithm), or past-action from a start-point to an end-point over terrain. It might not even involve physical tracks at all. 
 
-A feature of tracks is that a "track" cannot always be fully defined, and does not have a consistent topological relationship across time/space.
-Think of the following scenarios:
-a) A track as an end to end  feature, from one point to another. 
-b) If so, what features - road end to hut, road end to river crossing, road-end to another road-end, via other tracks, based on a concept of a "trip"
-c) 
+In short, there's no fixed definition of a "track". It is defined culturally, but anchored physically, although the anchoring can change meaning slowly based on a common acceptance of what a track is, or isn't. Topographical maps have traditionally focused on the physical features of a track, usualy, reliant on reporting from government departments and councils on the form and nature of it. The topographical "track" is what underpins most NZers concept of a track - some physical feature that existed, or once existed on the ground. 
 
+Outdoor people translate between track as a physical feature and track as a route effortlessly. It shouldn't be assumed everyone does. "Off track" is a scary concept to someone who has never been in the hills at all. To me, it's a scarier concept to my feet - I don't like blisters from hard surfaces, and DOC bored walks. 
+
+The point of all this discussion is to illustrate that tracks change their meaning. If a piece of software is to last, its underlying schema needs to reflect that tracks change their meaning over time, have contested meaning, and be able to handle this. There is thus no offical, canonical, set of truth about what a track is and isn't. There's past-practice and history, and a likely consistent common understanding, but no fixed scheme can exist. If one was to, it would create an unnecessary straitjacket for future use that cannot be anticipated in advance. 
+
+Thus any database schema to define tracks, must reflect the cultural concept of a track if it is to be of any success. This means - a physical feature on the ground, that is commonly understood and agreed, it might have a different intention for use, but can be used by others (big things tend to not like small tracks, and fast things may not like slow things - vice versa too). This is the approach taken by topographical maps, and whilst not perfect, topographical maps have existed in NZ for 100 years or more, and work, and so this is the approach taken here. 
+
+The next challenge is harder. Tracks are spatial and temporal - they move in space and time. This is highly contextual. In some places, moving a track from one side of the valley to another wouldn't be seen as a change at all, in other places - it'd would be the new east-side, true left track, versus the old track. In recent years, with the gradual pullout of the Department of Conservation from the backcountry, the community has taken on the maintenance work of some former DOC tracks, as well as opening up old NZ Forest Service routes. Debates about what a "track" is fortunately don't appear, showing that the concept is strong culturally. 
+
+The challenge arises in trying to capture this information in a computer systems. Computers don't know context unless programmed, and this requires careful thought. What's easy in a human head gets harder when it hits a database schema and table definition. 
+-What is the relationship of the state of a track to the underlying "primary". Is a track made up of a discrete set of finite "segments", is it more than this? Do some tracks support being split up into segments? What about showcasing the state of a track over time? 
+-At what point does a change to a track, such as a cut around a slip, or a better line up a spur, or a complete replacement due to major flooding, become an all new track? 
+-At what point does a route that may have no physical features on the ground, but yet is of importance sufficient to spatially capture it, cease to be a track? 
+-At what point does a track that might have been maintained by DOC, but for which information is wrong, and which the community have picked up, be reported on by the community and not DOC? 
+-What about cases of misnamed tracks, wrong spatial captures on the topomap, old versions versus new versions, GIS artifacts such as polygons in the wrong place, different coordinate systems, GPS signal quality, official linestrings and polygons that don't make sense. 
+
+There is no clear or easy answer to any of these cases, nor I imagine a bunch of other questions I and the outdoor community have not thought of. 
+
+Any database design cannot resolve these questions, but has to anticipate them and deal with them accordingly. It also has to anticipate other issues, such as: 
+-data quality, including future changes in positioning information
+-validation/verification/trust of data
+-use and reuse
+-official versus community information about tracks - where is the cut-off between DOC and community
+-information retrieval for use in other systems, archival, new maintainers
+-peer-review
+-avoiding single-user/single-organisation capture and control 
+
+These issues, and more, are dealt with by the following principles. If they haven't been, or you have suggestions, please add them. 
+
+Principle 1) 
+1.1 Permomap defines a "track" as a singular physical feature on the ground that supports recreation and is distinguishable from the surrounding terrain. There's no limit on the concept of "recreation", but at this point, mostly foot or pedal powered recreation. 4WD tracks are an edge case and a potential boundary at one end - pest control/trapping lines put in for biodiversity management purposes but also used for recreation are the other. The existence of a physical track needs to supported by evidence and/or intent (in the case of new tracks) or community support through peer-review. 
+
+1.2 The state of a track is different to the underlying primary track. Thus track state is implemented as a loose overlay that applies, like a highlighter pen, to the underlying track. A track can have many segments as an overlay that show its status. Similarly, a track does not need segments to show state - state can be shown in the primary track layer, or delegated to a set of segments (for instance, a longer track). Track information can be returned to the primary layer too. 
+
+1.3 The bounds of a track, or its neighbourhood, is set to 1km or the bounding box of another track (whichever comes first), so any spatial movements of a track, such as a cut or recut, within this 500m bounding box will be treated as an adjustment to the primary track. Outside of 1km (excluding the case of other tracks in the neighbourhood), the "name" of the track, or its identifier will be flagged for discussion and/or potential merging by moderators.
+
+1.4 All track information edits and updates require a user account. Peer review is by other users, with a single user to review and confirm. Moderators are to approve publishing/go-live. All user edits and amendments are saved. Monthly updates to track information are saved online at https://github.com/petergwilson/permomap/archive/ in CSV form,
+
+Implementation:
+-permomap_tracks - primary table for track information including geometry, id, current_version
+-permomap_track_version - table for version information, inherited from the parent. As new edits are made a new row is added, with the changes outlined. The server can produce a diff (set of changes) across versions, for review and moderation. Upon moderation approval, the current_version of the permomap_tracks table integer is set to the id of the version in the permomap_track_version. 
+-permomap_segments - Overlay table containing a more basic set of information about the current track status, for track cutters-reviewers. All GIS information goes into this at first (regardless of proximity or otherwise to existing primary tracks) to handle artifacts/accuracy. There is a separate interface for merging, editing this information. All info is accepted into the permomap_segments table, with a UUID for the segment entry. Once accepted by reviewer/moderator, a row in the permomap_segment_to_primary table is entered with a unique ID for the primary track as well, which attachs them. If the primary track flag for "multiple_status" is set to "true" the permomap_segments attached to this track are then shown as an overlay (using a VIEW in the geoserver) over that track, with a level of transparency. 
+-Unattached segments can also be shown if needed - but do not have to. 
+-ABILITY TO MERGE HERE - needs implementation. 
+
+Principle 2) Open source
+2.1 Permomap uses open source systems, mainly, Postgresql (v18), Postgis (v3 and above), pg_tileserv, pg_featureserve, Javascript/Typescript, HTML, OAuth2. 
+
+Principle 3) Trust
+3.1 Permomap aims to build trust, support, for community mapping. 
 
 
 
