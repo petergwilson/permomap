@@ -1,0 +1,195 @@
+✓ Connected to database
+
+Parsing PDF: remote_huts_content/track_maintenance_schedule_template_20260107.pdf
+✓ Extracted 384 total tracks from PDF
+✓ Found 39 tracks with 2025 updates
+
+✓ Loading database tracks...
+✓ Loaded 182 tracks from database
+
+================================================================================
+MATCHING TRACKS
+================================================================================
+
+PDF Track: Barrack Creek tops
+  ✓ MATCHED: Barrack Creek Tops Route (ID: 6)
+    Score: 1.00 | Type: exact
+    Last Cut: 2022
+    Custodian: Reasonably
+    Importance: Low
+
+PDF Track: Good. Needs a couple of waratahs at the
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Lower Creek is OK river travel. Further
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Campbell Biv track Pretty Good. Could do with a bit of a trim
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Cone Creek Track OK. Windthrow and trimming done in
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Cone Creek - Morgan
+  ✓ MATCHED: Cone Creek Hut to Morgan Tops (ID: 101)
+    Score: 0.54 | Type: fuzzy
+    Last Cut: 2024
+    Custodian: Sidle
+    Importance: Medium
+
+PDF Track: Tidied up ’25.
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Explorer Hut
+  ✓ MATCHED: Fraser Peak track from Explorer Hut (ID: 31)
+    Score: 0.52 | Type: fuzzy
+    Last Cut: 2025
+    Custodian: Reasonably Good
+    Importance: Medium
+
+PDF Track: Darby Creek
+  ✓ MATCHED: Frisco Hut from Darby Creek (ID: 97)
+    Score: 0.51 | Type: fuzzy
+    Last Cut: 2025
+    Custodian: None
+    Importance: None
+
+PDF Track: Gerhardt Spur Biv track Good from Biv down to just east of Pt
+  → Truncated to: Gerhardt Spur Biv track Good from Biv
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Fine to bush line with a little bit of
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Mix of track and river travel. Tracked
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Saddle
+  ✓ MATCHED: Harman Saddle Route (ID: 156)
+    Score: 0.54 | Type: fuzzy
+    Last Cut: 2025
+    Custodian: Medium Frank King and Honora Renwick Ongoing
+    Importance: Medium
+
+PDF Track: Saddle
+  ✓ MATCHED: Harman Saddle Route (ID: 156)
+    Score: 0.54 | Type: fuzzy
+    Last Cut: 2025
+    Custodian: Med Andrew Barker
+    Importance: Medium
+
+PDF Track: Brian O'Lyn tops track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Miserable Ridge track
+  ✓ MATCHED: Miserable Ridge from Rapid Creek (ID: 129)
+    Score: 0.55 | Type: fuzzy
+    Last Cut: 2021
+    Custodian: Med Christchurch Tramping Club
+    Importance: Medium
+
+PDF Track: Murray Saddle
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Rapid Creek
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Topomaps)
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: The bottom end is good – work done on
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Mt Browne/ Misty Ridge
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Considerable windthrow from October 25
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Mt Greenland Hut track
+  → Truncated to: Mt Greenland Hut
+  ✓ MATCHED: Mt Greenland Route (ID: 210)
+    Score: 0.69 | Type: fuzzy
+    Last Cut: 2025
+    Custodian: Archer Gully
+    Importance: Medium
+
+PDF Track: Mt Willberg Pretty good. Retrimmed to trig in Winter
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Saddle Creek OK/ 4x TR detours
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Newton Range tops
+  ✓ MATCHED: Newton Range Tops (ID: 189)
+    Score: 1.00 | Type: exact
+    Last Cut: 2025
+    Custodian: Lower Arahura Reasonable
+    Importance: Low
+
+PDF Track: Upper section OK with light regen. New
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Pell Stream Hut marked
+  ✓ MATCHED: Pell Stream Hut marked route (ID: 67)
+    Score: 1.00 | Type: exact
+    Last Cut: 2024
+    Custodian: Alternative
+    Importance: Medium
+
+PDF Track: E1475360/ N5262986. Recut to 550m
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Good. Mid section untracked but easy
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Homeward Ridge track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Creek
+  ✓ MATCHED: Lake Creek Track (ID: 206)
+    Score: 0.57 | Type: fuzzy
+    Last Cut: 1979
+    Custodian: Checked
+    Importance: None
+
+PDF Track: Med Michal Klajban & CTC October
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Tracked section reasonable. Work done
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Tunnel Creek Hut track Prettyy good condition. Some bits have a
+  → Truncated to: Tunnel Creek Hut
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Whitcombe main valley
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Original track gone in most places. A line
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Whitcombe valley track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+
+PDF Track: Yeats Ridge Track from
+  → Truncated to: Yeats Ridge Track
+  ✓ MATCHED: Yeats Ridge Track (ID: 60)
+    Score: 0.86 | Type: fuzzy
+    Last Cut: 2025
+    Custodian: High Liz Wightwick Ongoing
+    Importance: High
+
+================================================================================
+GENERATING SQL
+================================================================================
+Traceback (most recent call last):
+  File "/home/peter/permomap/src/remote_huts_parser.py", line 649, in <module>
+    main()
+  File "/home/peter/permomap/src/remote_huts_parser.py", line 626, in main
+    sql = generate_sql_inserts(matched_tracks, output_file)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/peter/permomap/src/remote_huts_parser.py", line 470, in generate_sql_inserts
+    custodian = track.get('custodian', '').replace("'", "''")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'replace'

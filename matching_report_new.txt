@@ -1,0 +1,74 @@
+PDF Track: Barrack Creek tops
+  ✓ MATCHED: Barrack Creek Tops Route (ID: 6)
+PDF Track: Browning Range tops –
+  ✓ MATCHED: Mid Styx - Browning Range tops (ID: 28)
+PDF Track: Burn Creek Hut
+  ✓ MATCHED: Tunnel Creek Hut Track (ID: 86)
+PDF Track: Clearview Spur track
+  ✓ MATCHED: Clearview Spur track from  Moonbeam Hut (ID: 15)
+PDF Track: Eastern Hohonu River
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Saddle & Doctors Creek
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Explorer Hut
+  ✓ MATCHED: Fraser Peak track from Explorer Hut (ID: 31)
+PDF Track: Darby Creek
+  ✓ MATCHED: Frisco Hut from Darby Creek (ID: 97)
+PDF Track: Diedrichs Range
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Creek
+  ✓ MATCHED: Lake Creek Track (ID: 206)
+PDF Track: Greys Hut track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Saddle
+  ✓ MATCHED: Harman Saddle Route (ID: 156)
+PDF Track: Saddle
+  ✓ MATCHED: Harman Saddle Route (ID: 156)
+PDF Track: Brian O'Lyn tops track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Miserable Ridge track
+  ✓ MATCHED: Miserable Ridge from Rapid Creek (ID: 129)
+PDF Track: Murray Saddle
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Rapid Creek
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Rapid Creek
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Mt Barron tops
+  ✓ MATCHED: Mt Barron tops from Goat Creek (ID: 111)
+PDF Track: Mt Browne/ Misty Ridge
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Mt Curtis Hut route Track starts
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Mt Greenland Hut track
+  ✓ MATCHED: Mt Greenland Route (ID: 210)
+PDF Track: Mt Stormy track
+  ✓ MATCHED: Mt Stormy Route (ID: 141)
+PDF Track: Mungo Hut valley
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Newton Range tops
+  ✓ MATCHED: Newton Range Tops (ID: 189)
+PDF Track: Whitcombe Valley
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Pell Stream Hut marked
+  ✓ MATCHED: Pell Stream Hut marked route (ID: 67)
+PDF Track: Rangi Taipo tops
+  ✓ MATCHED: Rangi Taipo tops from Seven Mile (ID: 145)
+PDF Track: Roaring Billy Hut
+  ✓ MATCHED: Roaring Billy Hut track (ID: 83)
+PDF Track: Homeward Ridge track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Creek
+  ✓ MATCHED: Lake Creek Track (ID: 206)
+PDF Track: Elizabeth Hut
+  ✓ MATCHED: Top Trent Hut from Elizabeth Hut (ID: 108)
+PDF Track: Taramakau Valley
+  ✓ MATCHED: Taramakau Valley to Townsend Hut Route (ID: 119)
+PDF Track: Whitcombe main valley
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Whitehorn Spur track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Whitcombe valley track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Yeats Ridge Track
+  ✓ MATCHED: Yeats Ridge Track (ID: 60)

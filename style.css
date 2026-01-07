@@ -4,12 +4,8 @@ html, body {
   margin: 0;
   height: 100%;
 }
-#map {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 100%;
-}
+
+/* Map styling is now in index.html inline styles and NZFS section below */
 
 /* OAuth and Account Management Styles */
 
@@ -173,3 +169,209 @@ html, body {
     background: #5a6268;
 }
 
+
+/* NZFS Authentic Enhancements - Washed Out Red & Gold */
+
+/* Custom scrollbar for info panel */
+#info::-webkit-scrollbar {
+    width: 12px;
+    background: #F5D5D4;
+    border-left: 2px solid var(--border-dark);
+}
+
+#info::-webkit-scrollbar-thumb {
+    background: #A04842;
+    border: 2px solid #F5D5D4;
+}
+
+#info::-webkit-scrollbar-thumb:hover {
+    background: #B85450;
+}
+
+/* Form field styling in info panel */
+#info label {
+    display: block;
+    font-weight: bold;
+    color: #5D2E2E;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 1px;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    border-bottom: 2px solid #FFD700;
+    padding-bottom: 4px;
+}
+
+#info .editable-field {
+    background: white;
+    border: 3px solid var(--border-dark);
+    padding: 8px;
+    font-family: 'Courier New', monospace;
+    color: #5D2E2E;
+    box-shadow: inset 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+#info .date-field {
+    background: white;
+    border: 3px solid var(--border-dark);
+    padding: 8px;
+    font-family: 'Courier New', monospace;
+    color: #5D2E2E;
+    box-shadow: inset 2px 2px 4px rgba(0,0,0,0.1);
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    user-select: auto !important;
+    -webkit-user-select: auto !important;
+}
+
+#info .editable-field:focus,
+#info .date-field:focus {
+    border-color: #B85450;
+    outline: 2px solid #FFD700;
+    outline-offset: 2px;
+}
+
+/* Map container enhancement */
+#map {
+    border: 4px solid var(--border-dark);
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* Modal NZFS styling */
+.modal-content {
+    background: linear-gradient(to bottom, #FDE8E7 0%, #F5D5D4 100%);
+    border: 4px solid var(--border-dark);
+    box-shadow: 8px 8px 0px rgba(0,0,0,0.3);
+}
+
+.modal-content h2 {
+    color: #5D2E2E;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 3px solid #FFD700;
+    padding-bottom: 8px;
+}
+
+.modal-content input {
+    border: 3px solid var(--border-dark);
+    background: white;
+    font-family: 'Courier New', monospace;
+    padding: 10px;
+}
+
+.modal-content button {
+    background: #B85450;
+    color: #FFD700;
+    border: 3px solid var(--border-dark);
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px 20px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
+    transition: all 0.2s;
+}
+
+.modal-content button:hover {
+    background: #A04842;
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0px rgba(0,0,0,0.3);
+}
+
+.modal-content button:active {
+    transform: translate(0, 0);
+    box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+}
+
+/* ===================================================================
+   IMPORTANCE BAR FOR PUBLIC USERS ON PERMOLAT TRACKS
+   =================================================================== */
+
+/* Make info div relative for absolute positioning */
+#info.permomap_style_public.layer-permolat_tracks {
+    position: relative;
+}
+
+/* Hide importance label element for public */
+#info.permomap_style_public.layer-permolat_tracks importance {
+    display: none !important;
+}
+
+/* Position importance field as visual bar in top right */
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"] {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    width: 120px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    border: 2px solid #B85450 !important;
+    border-radius: 16px !important;
+    background: #FDE8E7 !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+    z-index: 100 !important;
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.15) !important;
+}
+
+/* Create visual bar fill */
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"]::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100% !important;
+    background: linear-gradient(90deg, #B85450 0%, #FFD700 100%) !important;
+    transition: width 0.3s ease !important;
+}
+
+/* Text overlay showing X / 5 */
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"]::after {
+    content: attr(data-importance) ' / 5' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    color: white !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5) !important;
+    z-index: 1 !important;
+    font-family: 'Courier New', monospace !important;
+    letter-spacing: 1px !important;
+}
+
+/* Width based on importance value */
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"][data-importance="1"]::before { 
+    width: 100% !important; 
+}
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"][data-importance="2"]::before { 
+    width: 80% !important; 
+}
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"][data-importance="3"]::before { 
+    width: 60% !important; 
+}
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"][data-importance="4"]::before { 
+    width: 40% !important; 
+}
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"][data-importance="5"]::before { 
+    width: 20% !important; 
+}
+
+/* Unassigned importance styling */
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"][data-importance="unassigned"] {
+    background: #E0E0E0 !important;
+    border: 2px dashed #999 !important;
+}
+
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"][data-importance="unassigned"]::before {
+    display: none !important;
+}
+
+#info.permomap_style_public.layer-permolat_tracks .editable-field[name="editable-importance"][data-importance="unassigned"]::after {
+    content: 'UNASSIGNED' !important;
+    color: #666 !important;
+    font-size: 9px !important;
+}

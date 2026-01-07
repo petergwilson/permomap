@@ -143,7 +143,7 @@ if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
     passport.use(new MicrosoftStrategy({
         clientID: process.env.MICROSOFT_CLIENT_ID,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-        callbackURL: process.env.MICROSOFT_CALLBACK_URL || '/auth/microsoft/callback',
+        callbackURL: process.env.MICROSOFT_CALLBACK_URL || `${BASE_PATH}/auth/microsoft/callback`,
         scope: ['user.read']
     },
     async (accessToken, refreshToken, profile, done) => {
@@ -161,7 +161,7 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     passport.use(new LinkedInStrategy({
         clientID: process.env.LINKEDIN_CLIENT_ID,
         clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-        callbackURL: process.env.LINKEDIN_CALLBACK_URL || '/auth/linkedin/callback',
+        callbackURL: process.env.LINKEDIN_CALLBACK_URL || `${BASE_PATH}/auth/linkedin/callback`,
         scope: ['r_emailaddress', 'r_liteprofile']
     },
     async (accessToken, refreshToken, profile, done) => {
@@ -207,49 +207,50 @@ const validateInput = (data, requiredFields) => {
 */
 
 // OAuth Routes
+console.log('Registering OAuth routes with BASE_PATH:', BASE_PATH);
 
 // Google OAuth
-app.get('/auth/google',
+app.get(`${BASE_PATH}/auth/google`,
     passport.authenticate('google', { scope: ['profile', 'email'] })
 );
 
-app.get('/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login' }),
+app.get(`${BASE_PATH}/auth/google/callback`,
+    passport.authenticate('google', { failureRedirect: `${BASE_PATH}/?login=failed` }),
     (req, res) => {
         req.session.userid = req.user.userid;
         req.session.username = req.user.username;
         req.session.role = req.user.role;
-        res.redirect('/?oauth=success');
+        res.redirect(`${BASE_PATH}/?oauth=success`);
     }
 );
 
 // Microsoft OAuth
-app.get('/auth/microsoft',
+app.get(`${BASE_PATH}/auth/microsoft`,
     passport.authenticate('microsoft', { scope: ['user.read'] })
 );
 
-app.get('/auth/microsoft/callback',
-    passport.authenticate('microsoft', { failureRedirect: '/login' }),
+app.get(`${BASE_PATH}/auth/microsoft/callback`,
+    passport.authenticate('microsoft', { failureRedirect: `${BASE_PATH}/?login=failed` }),
     (req, res) => {
         req.session.userid = req.user.userid;
         req.session.username = req.user.username;
         req.session.role = req.user.role;
-        res.redirect('/?oauth=success');
+        res.redirect(`${BASE_PATH}/?oauth=success`);
     }
 );
 
 // LinkedIn OAuth
-app.get('/auth/linkedin',
+app.get(`${BASE_PATH}/auth/linkedin`,
     passport.authenticate('linkedin')
 );
 
-app.get('/auth/linkedin/callback',
-    passport.authenticate('linkedin', { failureRedirect: '/login' }),
+app.get(`${BASE_PATH}/auth/linkedin/callback`,
+    passport.authenticate('linkedin', { failureRedirect: `${BASE_PATH}/?login=failed` }),
     (req, res) => {
         req.session.userid = req.user.userid;
         req.session.username = req.user.username;
         req.session.role = req.user.role;
-        res.redirect('/?oauth=success');
+        res.redirect(`${BASE_PATH}/?oauth=success`);
     }
 );
 

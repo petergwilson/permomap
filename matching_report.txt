@@ -1,0 +1,82 @@
+PDF Track: Barrack Creek tops
+  ✓ MATCHED: Barrack Creek Tops Route (ID: 6)
+PDF Track: Good. Needs a couple of waratahs at the
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Lower Creek is OK river travel. Further
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Campbell Biv track Pretty Good. Could do with a bit of a trim
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Cone Creek Track OK. Windthrow and trimming done in
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Cone Creek - Morgan
+  ✓ MATCHED: Cone Creek Hut to Morgan Tops (ID: 101)
+PDF Track: Tidied up ’25.
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Explorer Hut
+  ✓ MATCHED: Fraser Peak track from Explorer Hut (ID: 31)
+PDF Track: Darby Creek
+  ✓ MATCHED: Frisco Hut from Darby Creek (ID: 97)
+PDF Track: Gerhardt Spur Biv track Good from Biv down to just east of Pt
+  → Truncated to: Gerhardt Spur Biv track Good from Biv
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Fine to bush line with a little bit of
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Mix of track and river travel. Tracked
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Saddle
+  ✓ MATCHED: Harman Saddle Route (ID: 156)
+PDF Track: Saddle
+  ✓ MATCHED: Harman Saddle Route (ID: 156)
+PDF Track: Brian O'Lyn tops track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Miserable Ridge track
+  ✓ MATCHED: Miserable Ridge from Rapid Creek (ID: 129)
+PDF Track: Murray Saddle
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Rapid Creek
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Topomaps)
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: The bottom end is good – work done on
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Mt Browne/ Misty Ridge
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Considerable windthrow from October 25
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Mt Greenland Hut track
+  → Truncated to: Mt Greenland Hut
+  ✓ MATCHED: Mt Greenland Route (ID: 210)
+PDF Track: Mt Willberg Pretty good. Retrimmed to trig in Winter
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Saddle Creek OK/ 4x TR detours
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Newton Range tops
+  ✓ MATCHED: Newton Range Tops (ID: 189)
+PDF Track: Upper section OK with light regen. New
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Pell Stream Hut marked
+  ✓ MATCHED: Pell Stream Hut marked route (ID: 67)
+PDF Track: E1475360/ N5262986. Recut to 550m
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Good. Mid section untracked but easy
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Homeward Ridge track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Creek
+  ✓ MATCHED: Lake Creek Track (ID: 206)
+PDF Track: Med Michal Klajban & CTC October
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Tracked section reasonable. Work done
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Tunnel Creek Hut track Prettyy good condition. Some bits have a
+  → Truncated to: Tunnel Creek Hut
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Whitcombe main valley
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Original track gone in most places. A line
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Whitcombe valley track
+  ✗ NO MATCH FOUND (try adjusting min_similarity)
+PDF Track: Yeats Ridge Track from
+  → Truncated to: Yeats Ridge Track
+  ✓ MATCHED: Yeats Ridge Track (ID: 60)

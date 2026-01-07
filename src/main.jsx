@@ -124,6 +124,9 @@
 //user-edit class is assigned in the functions.sql EXTENSIONS for postgresql
 
 document.addEventListener('DOMContentLoaded', function () {
+    console.log('========================================')
+    console.log('MAIN.JSX LOADED - GRID LAYOUT VERSION');
+    console.log('========================================');
 
     //Map reloads:
     const center = localStorage.getItem('map_center');
@@ -729,7 +732,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     source: new VectorSource({
         //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
         //CAN BE CHANGED
-        url: GEOSERVER_BASE+'collections/public.permolat_tracks_prod/items.json?limit=500&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodians&filter=current_version=true',
+        url: GEOSERVER_BASE+'collections/public.permolat_tracks_prod/items.json?limit=500&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian&filter=current_version=true',
         format: new GeoJSON(),
         wrapX: false,
         name: 'permolat_tracks',
@@ -900,6 +903,44 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         }
         
     }//end rollback
+
+    // Handle button click for view track history
+    async function view_track_history_onclick(e) {
+        e.preventDefault();
+        
+        const bottomPanel = document.getElementById('bottom-panel');
+        
+        // Get the currently selected feature
+        if (!window.lastSelectedFeature) {
+            alert('No track selected. Please select a track first.');
+            return;
+        }
+        
+        const properties = window.lastSelectedFeature.getProperties();
+        const trackId = properties.id;
+        const trackName = properties.trackname || 'Unknown Track';
+        
+        // Show loading message
+        bottomPanel.innerHTML = '<div style="padding: 20px; text-align: center; color: white;"><h3>Loading track history...</h3></div>';
+        
+        try {
+            // TODO: Implement API call to fetch track history
+            // For now, show placeholder
+            bottomPanel.innerHTML = `
+                <div style="padding: 20px; font-family: Arial, sans-serif; color: white;">
+                    <h3 style="color: #FFD700; margin-bottom: 15px; border-bottom: 2px solid #FFD700; padding-bottom: 8px;">Track History: ${trackName}</h3>
+                    <p style="color: #FDE8E7; font-size: 14px; margin-bottom: 10px;"><strong>Track ID:</strong> ${trackId}</p>
+                    <div style="margin-top: 20px; padding: 15px; background: rgba(255, 255, 255, 0.15); border-left: 4px solid #FFD700; border-radius: 4px;">
+                        <p style="margin: 0; font-style: italic; color: #FFD700; font-size: 16px;">📋 History feature coming soon...</p>
+                        <p style="margin-top: 10px; font-size: 12px; color: #FDE8E7;">This will display all historical changes, maintenance records, and track modifications.</p>
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error fetching track history:', error);
+            bottomPanel.innerHTML = '<div style="padding: 20px; color: #FFD700; font-weight: bold;">⚠️ Error loading track history</div>';
+        }
+    }
 
     // Handle button click for the rollforward button
    async function rollforward_onclick(e)  {
@@ -1232,7 +1273,7 @@ document.head.appendChild(style_control_rollback);
   }  
 
   //CUSTOM ORDER FOR PEROMOLAT TRACKS
-  const customOrder = ['trackname', 'importance', 'tracktype','lastcut','nextcut','currentcon','custodian'];
+  const customOrder = ['trackname', 'tracktype', 'custodian', 'importance', 'lastcut','nextcut','currentcon'];
 
   //console.log(sortedObject);
   
@@ -1272,6 +1313,9 @@ document.head.appendChild(style_control_rollback);
     //Select interaction main function
     //
     async function on_select(event)  {
+        console.log('===== ON_SELECT CALLED =====');
+        console.log('Event:', event);
+        console.log('Selected features:', event.selected);
         //event.preventDefault();
 
         const selectedFeature = event.selected[0];
@@ -1288,6 +1332,7 @@ document.head.appendChild(style_control_rollback);
         // Get the coordinates
         //window.coordinates = event.coordinate;
         //window.zoomLevel=event.zoomLevel;
+
 
         //console.log('Coordinates:', coordinate);
 
@@ -1307,11 +1352,41 @@ document.head.appendChild(style_control_rollback);
         titleDiv.style.fontSize = '18px';
         
         editorDiv.innerHTML = ''; // Clear previous editor
+        
+        // Clear the dateRowContainer for new feature selection
+        window.dateRowContainer = null;
+        
+        // Apply CSS class based on user role for layout and placement of dynamic input boxes
+        const userRole = window.session_info?.role || 'public';
+        editorDiv.classList.remove('permomap_style_public', 'permomap_style_users', 'permomap_style_moderator', 'layer-permolat_tracks', 'layer-doc_tracks');
+        
+        switch(userRole) {
+            case 'public':
+                editorDiv.classList.add('permomap_style_public');
+                break;
+            case 'user':
+                editorDiv.classList.add('permomap_style_users');
+                break;
+            case 'moderator':
+                editorDiv.classList.add('permomap_style_users', 'permomap_style_moderator');
+                break;
+            default:
+                editorDiv.classList.add('permomap_style_public');
+        }
+        
+        console.log('Applied role class:', userRole, editorDiv.className);
+        
         if (event.selected.length > 0) 
         {
           
             
             const properties = selectedFeature.getProperties();
+            
+            // Add layer-specific CSS class based on layer_name
+            if (properties['layer_name']) {
+                editorDiv.classList.add('layer-' + properties['layer_name']);
+                console.log('Applied layer class: layer-' + properties['layer_name'], editorDiv.className);
+            }
 
             //map_click_pixel=map.getEventCoordinate;
             //alert(map_click_pixel);
@@ -1343,6 +1418,7 @@ document.head.appendChild(style_control_rollback);
             inputtype='text';
             for (const key in sortedObject) 
             {
+                console.log('Processing field key:', key, 'value:', sortedObject[key]);
                 
                 if (key!=='geometry' && key!=='layer_name' //&& key!=='id'
                   ) 
@@ -1352,6 +1428,9 @@ document.head.appendChild(style_control_rollback);
                         case 'trackname': 
                             label_content='Track Name';
                             break;
+                        case 'id':
+                            // Skip id field - it's included in trackname label
+                            continue;
                         case 'importance': 
                             label_content='Importance';
                             break;
@@ -1380,39 +1459,281 @@ document.head.appendChild(style_control_rollback);
                     }
                     
                     const label = document.createElement(key);
-                    label.textContent = label_content + ': ';
-                    // Set font weight to bold
-                    label.style.fontWeight = 'bold';
+                    label.textContent = label_content;
+                    // Set font weight to normal (not bold)
+                    label.style.fontWeight = 'normal';
 
-                    // Set font size to 12px
-                    label.style.fontSize = '16px';
+                    // Set font size to smaller (10px)
+                    label.style.fontSize = '10px';
+                    
+                    // Make it gray and uppercase
+                    label.style.color = '#666';
+                    label.style.textTransform = 'uppercase';
+                    label.style.letterSpacing = '0.5px';
+                    label.style.marginTop = '2px';
 
                     //const meta=document.createElement('span');
                     //meta.className='edit-meta';
 
 
                     //Editable input box
-                    const input = document.createElement('div');
-                    input.className='editable-field';
-                    //Styling for the editable div
-                    //input.type=inputtype;
-                    //This class allows the tiptap/quill editor to attach itself to this div. 
-                    //input.classList.add('editable'); 
-                    input.contentEditable = 'true';
+                    // Use native date input for date fields, contentEditable div for others
+                    const isDateField = (key === 'lastcut' || key === 'nextcut');
+                    const isCustodianField = (key === 'custodian');
+                    const input = document.createElement(isDateField ? 'input' : 'div');
                     
-                    input.style.border = '1px solid #ccc';
-                    input.style.padding = '5px';
-                    //Word wrap
-                    input.style.whiteSpace = "pre-wrap";
-                    input.style.overflowWrap = "break-word";
+                    // Use different class for date inputs to avoid contentEditable CSS conflicts
+                    if (isDateField) {
+                        input.className = 'date-field';
+                    } else {
+                        input.className = 'editable-field';
+                    }
                     
-                    //input.type = 'text';
-                    //Set input innerHTML to properties of the layer
-                    input.innerHTML = properties[key];
-
+                    if (isDateField) {
+                        input.type = 'date';
+                        // Ensure date input is interactive
+                        input.style.pointerEvents = 'auto';
+                        input.style.cursor = 'pointer';
+                        input.style.userSelect = 'auto';
+                        input.style.webkitUserSelect = 'auto';
+                        
+                        console.log('Creating date input for:', key, 'Type:', input.type);
+                        
+                        // Convert Unix timestamp to YYYY-MM-DD format
+                        const unixTimestamp = properties[key];
+                        if (unixTimestamp) {
+                            const date = new Date(unixTimestamp * 1000); // Unix timestamp is in seconds
+                            const yyyy = date.getFullYear();
+                            const mm = String(date.getMonth() + 1).padStart(2, '0');
+                            const dd = String(date.getDate()).padStart(2, '0');
+                            input.value = `${yyyy}-${mm}-${dd}`;
+                            console.log('Date input value set to:', input.value);
+                        }
+                    } else {
+                        //This class allows the tiptap/quill editor to attach itself to this div. 
+                        //input.classList.add('editable'); 
+                        // Custodian field is read-only
+                        input.contentEditable = isCustodianField ? 'false' : 'true';
+                        //Set input innerHTML to properties of the layer
+                        input.innerHTML = properties[key] || '';
+                    }
+                    
+                    // Base styling is now handled by CSS classes
+                    // Only set minimal inline styles if needed for specific cases
+                    
                     //Set input name - basically an ID for the state_locking
                     //Use editable-$[key] for this
                     input.name="editable-"+key;
+                    
+                    // Set data-importance attribute for visual bar display
+                    if (key === 'importance') {
+                        const rawValue = properties[key];
+                        const importanceValue = parseInt(rawValue);
+                        
+                        console.log('=== IMPORTANCE FIELD DETECTED ===');
+                        console.log('Raw value:', rawValue);
+                        console.log('Parsed value:', importanceValue);
+                        console.log('User Role:', userRole);
+                        console.log('Layer Name:', properties['layer_name']);
+                        
+                        // Check if value is valid (1-5)
+                        const isValidImportance = !isNaN(importanceValue) && importanceValue >= 1 && importanceValue <= 5;
+                        
+                        if (!isValidImportance) {
+                            input.setAttribute('data-importance', 'unassigned');
+                        } else {
+                            input.setAttribute('data-importance', importanceValue.toString());
+                        }
+                        
+                        // For public users on permolat_tracks, transform into visual bar
+                        if (userRole === 'public' && properties['layer_name'] === 'permolat_tracks') {
+                            console.log('*** TRANSFORMING IMPORTANCE TO BAR ***');
+                            
+                            // Note: Label styling is handled later in the main layout code
+                            
+                            // Transform input into visual bar - override flex styling
+                            input.style.position = 'relative';
+                            input.style.flex = 'none';
+                            input.style.width = '120px';
+                            input.style.height = '32px';
+                            input.style.padding = '0';
+                            input.style.border = '2px solid #B85450';
+                            input.style.borderRadius = '16px';
+                            input.style.overflow = 'hidden';
+                            input.style.fontSize = '0';
+                            input.style.boxShadow = '2px 2px 6px rgba(0,0,0,0.15)';
+                            input.style.marginBottom = '8px';
+                            
+                            if (isValidImportance) {
+                                // Valid importance: show filled bar
+                                input.style.background = '#FDE8E7';
+                                
+                                // Calculate bar width based on importance (1=100%, 5=20%)
+                                const barWidth = 120 - (importanceValue - 1) * 20;
+                                const barPercent = (barWidth / 120) * 100;
+                                
+                                console.log('Bar width:', barPercent + '%', 'for importance:', importanceValue);
+                                
+                                // Create bar fill
+                                const barFill = document.createElement('div');
+                                barFill.style.position = 'absolute';
+                                barFill.style.top = '0';
+                                barFill.style.left = '0';
+                                barFill.style.height = '100%';
+                                barFill.style.width = barPercent + '%';
+                                barFill.style.background = 'linear-gradient(90deg, #B85450 0%, #FFD700 100%)';
+                                barFill.style.transition = 'width 0.3s ease';
+                                barFill.style.pointerEvents = 'none';
+                                
+                                // Create text overlay
+                                const barText = document.createElement('div');
+                                barText.textContent = importanceValue + ' / 5';
+                                barText.style.position = 'absolute';
+                                barText.style.top = '50%';
+                                barText.style.left = '50%';
+                                barText.style.transform = 'translate(-50%, -50%)';
+                                barText.style.color = 'white';
+                                barText.style.fontSize = '11px';
+                                barText.style.fontWeight = 'bold';
+                                barText.style.textShadow = '1px 1px 2px rgba(0,0,0,0.5)';
+                                barText.style.zIndex = '1';
+                                barText.style.fontFamily = 'Courier New, monospace';
+                                barText.style.letterSpacing = '1px';
+                                barText.style.pointerEvents = 'none';
+                                
+                                // Clear input and add bar elements
+                                input.innerHTML = '';
+                                input.appendChild(barFill);
+                                input.appendChild(barText);
+                            } else {
+                                // Invalid/null importance: show "Unassigned" badge
+                                input.style.background = '#E0E0E0';
+                                input.style.border = '2px dashed #999';
+                                
+                                const unassignedText = document.createElement('div');
+                                unassignedText.textContent = 'UNASSIGNED';
+                                unassignedText.style.position = 'absolute';
+                                unassignedText.style.top = '50%';
+                                unassignedText.style.left = '50%';
+                                unassignedText.style.transform = 'translate(-50%, -50%)';
+                                unassignedText.style.color = '#666';
+                                unassignedText.style.fontSize = '9px';
+                                unassignedText.style.fontWeight = 'bold';
+                                unassignedText.style.fontFamily = 'Courier New, monospace';
+                                unassignedText.style.letterSpacing = '1px';
+                                unassignedText.style.pointerEvents = 'none';
+                                
+                                input.innerHTML = '';
+                                input.appendChild(unassignedText);
+                            }
+                            
+                            input.contentEditable = 'false';
+                            input.style.cursor = 'pointer';
+                            input.style.pointerEvents = 'auto';
+                            input.title = 'Click to change importance';
+                            
+                            console.log('Adding click handler to importance bar');
+                            
+                            // Make importance bar clickable to edit
+                            input.addEventListener('click', function(e) {
+                                console.log('Importance bar clicked!');
+                                
+                                // Create dropdown selector
+                                const select = document.createElement('select');
+                                select.style.cssText = 'width: 120px; height: 32px; border: 2px solid #B85450; border-radius: 16px; padding: 0 8px; font-family: Courier New, monospace; font-size: 11px; background: white; cursor: pointer;';
+                                select.size = 6; // Show all options at once
+                                
+                                // Add options
+                                const options = [
+                                    { value: 'null', label: 'UNASSIGNED' },
+                                    { value: '1', label: '1 - Highest' },
+                                    { value: '2', label: '2 - High' },
+                                    { value: '3', label: '3 - Medium' },
+                                    { value: '4', label: '4 - Low' },
+                                    { value: '5', label: '5 - Lowest' }
+                                ];
+                                
+                                options.forEach(opt => {
+                                    const option = document.createElement('option');
+                                    option.value = opt.value;
+                                    option.textContent = opt.label;
+                                    if ((opt.value === 'null' && !isValidImportance) || (opt.value === importanceValue.toString())) {
+                                        option.selected = true;
+                                    }
+                                    select.appendChild(option);
+                                });
+                                
+                                // Replace bar with select temporarily
+                                input.innerHTML = '';
+                                input.style.background = 'white';
+                                input.style.padding = '0';
+                                input.appendChild(select);
+                                select.focus();
+                                
+                                // Handle selection
+                                select.addEventListener('change', function() {
+                                    const newValue = select.value === 'null' ? null : parseInt(select.value);
+                                    
+                                    // Update feature
+                                    selectedFeature.set(key, newValue);
+                                    
+                                    // Update geojson
+                                    const geojsonFormat = new GeoJSON();
+                                    const geojsonObject = geojsonFormat.writeFeatureObject(selectedFeature);
+                                    window.geojson = geojsonObject;
+                                    
+                                    console.log('Importance changed to:', newValue);
+                                    
+                                    // Update the data attribute for CSS styling
+                                    input.setAttribute('data-importance', newValue === null ? 'unassigned' : newValue.toString());
+                                    
+                                    // Rebuild the bar display
+                                    rebuildImportanceBar(newValue);
+                                });
+                                
+                                // Function to rebuild the importance bar
+                                function rebuildImportanceBar(value) {
+                                    const importanceValue = parseInt(value);
+                                    const isValid = !isNaN(importanceValue) && importanceValue >= 1 && importanceValue <= 5;
+                                    
+                                    input.innerHTML = '';
+                                    input.style.background = isValid ? '#FDE8E7' : '#E0E0E0';
+                                    input.style.border = isValid ? '2px solid #B85450' : '2px dashed #999';
+                                    input.style.padding = '0';
+                                    
+                                    if (isValid) {
+                                        const barWidth = 120 - (importanceValue - 1) * 20;
+                                        const barPercent = (barWidth / 120) * 100;
+                                        
+                                        const barFill = document.createElement('div');
+                                        barFill.style.cssText = 'position: absolute; top: 0; left: 0; height: 100%; width: ' + barPercent + '%; background: linear-gradient(90deg, #B85450 0%, #FFD700 100%); transition: width 0.3s ease; pointer-events: none;';
+                                        
+                                        const barText = document.createElement('div');
+                                        barText.textContent = importanceValue + ' / 5';
+                                        barText.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 11px; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); z-index: 1; font-family: Courier New, monospace; letter-spacing: 1px; pointer-events: none;';
+                                        
+                                        input.appendChild(barFill);
+                                        input.appendChild(barText);
+                                    } else {
+                                        const unassignedText = document.createElement('div');
+                                        unassignedText.textContent = 'UNASSIGNED';
+                                        unassignedText.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #666; font-size: 9px; font-weight: bold; font-family: Courier New, monospace; letter-spacing: 1px; pointer-events: none;';
+                                        input.appendChild(unassignedText);
+                                    }
+                                }
+                                
+                                // Handle blur - just restore the bar
+                                select.addEventListener('blur', function() {
+                                    // Get current value from feature
+                                    const currentValue = selectedFeature.get(key);
+                                    rebuildImportanceBar(currentValue);
+                                });
+                            });
+                            
+                            console.log('Bar transformation complete');
+                        }
+                    }
+                    
                     //input.style.color='red';
                     //input.value=properties[key];
 
@@ -1437,12 +1758,12 @@ document.head.appendChild(style_control_rollback);
                     //IF THE FIELD IS CUSTODIAN AND THE CUSTODIAN IS NOT EMPTY
                     //DISABLE EDITING
                     //FOR TRACKS WITHOUT A CUSTODIAN, ENABLE EDITING. 
-                    /*
+                    
                     if (key=='custodian' && properties[key]!='') {
-                        input.disabled=true;
                         input.contentEditable = 'false';
+                        // Styling is handled by CSS via [contenteditable="false"] selector
                     }
-                    */
+                    
                      
                     // Each gets its own editor instance
                     /*
@@ -1460,6 +1781,8 @@ document.head.appendChild(style_control_rollback);
                     */
                     /*Event listener for keydown */
                     
+                    // Skip keydown handler for date inputs - they need default behavior
+                    if (!isDateField) {
                     input.addEventListener('keydown', e => {
                       if (
                         e.key.length === 1 &&
@@ -1493,11 +1816,14 @@ document.head.appendChild(style_control_rollback);
                       }
                  
                     });
+                    } // End of if (!isDateField) for keydown handler
                     
 
 
                     //OnBlur event
                     //Merge the individual character
+                    // Skip blur handler for date inputs - they don't use innerHTML
+                    if (!isDateField) {
                     input.addEventListener('blur', function() 
                     {
                         
@@ -1554,7 +1880,17 @@ document.head.appendChild(style_control_rollback);
                       //SelectedFeature.set is critical - this assigns the innerText for the clicked feature fields to the geoJSON object
                       //Use innerHTML to get the attributes, currently no need to pass the innerHTML
                       //If text is passed, the server functions pick up the changes and add on the username who made them
-                      selectedFeature.set(key, input.innerHTML);  
+                      
+                      // Handle date inputs differently - convert to Unix timestamp
+                      if (input.type === 'date' && input.value) {
+                          const date = new Date(input.value);
+                          const unixTimestamp = Math.floor(date.getTime() / 1000);
+                          selectedFeature.set(key, unixTimestamp);
+                      } else {
+                          const value = input.type === 'date' ? input.value : input.innerHTML;
+                          selectedFeature.set(key, value);
+                      }
+                      
                       const geojsonFormat=new GeoJSON();
                       const geojsonObject = geojsonFormat.writeFeatureObject(selectedFeature);
                 
@@ -1565,11 +1901,120 @@ document.head.appendChild(style_control_rollback);
 
                       console.log(JSON.stringify(window.geojson));
                   });
+                  } // End of if (!isDateField) for blur handler
+                  
+                  // Add change event handler for date inputs
+                  if (isDateField) {
+                      input.addEventListener('change', function() {
+                          // Convert date input to Unix timestamp
+                          if (input.value) {
+                              const date = new Date(input.value);
+                              const unixTimestamp = Math.floor(date.getTime() / 1000);
+                              selectedFeature.set(key, unixTimestamp);
+                              
+                              const geojsonFormat = new GeoJSON();
+                              const geojsonObject = geojsonFormat.writeFeatureObject(selectedFeature);
+                              window.geojson = geojsonObject;
+                              
+                              console.log('Date changed:', key, input.value, 'Unix:', unixTimestamp);
+                              console.log(JSON.stringify(window.geojson));
+                          }
+                      });
+                  }
                 
-                    editorDiv.appendChild(label);
+                    // Flexbox layout for all fields: label on left, input on right
+                    // Exception: importance, lastcut, nextcut use column layout (label above input) and arranged horizontally
+                    const flexContainer = document.createElement('div');
+                    const isImportanceBar = (key === 'importance' && userRole === 'public' && properties['layer_name'] === 'permolat_tracks');
+                    // isDateField already declared above
+                    const useColumnLayout = isImportanceBar || isDateField;
+                    const flexDirection = useColumnLayout ? 'column' : 'row';
+                    
+                    // Group importance, lastcut, nextcut in horizontal row
+                    if (isImportanceBar) {
+                        // Create horizontal wrapper to hold importance, lastcut, nextcut
+                        window.dateRowContainer = window.dateRowContainer || document.createElement('div');
+                        window.dateRowContainer.style.cssText = 'display: flex !important; flex-direction: row !important; gap: 12px !important; margin-bottom: 8px !important; align-items: flex-start !important; pointer-events: auto !important;';
+                    }
+                    
+                    flexContainer.style.cssText = `display: flex !important; flex-direction: ${flexDirection} !important; align-items: flex-start !important; gap: ${useColumnLayout ? '4px' : '12px'} !important; margin-bottom: ${isDateField ? '0' : '8px'} !important; pointer-events: auto !important;`;
+                    
+                    console.log('Creating flex container for field:', key);
+                    
+                    // Style label for horizontal layout
+                    label.style.cssText = 'margin: 0 !important; flex-shrink: 0 !important; font-size: 16px !important; font-weight: normal !important; text-transform: uppercase !important; color: #666 !important; letter-spacing: 0.5px !important; padding-top: 5px !important; width: 100px !important;';
+                    label.textContent = label_content + ':';
+                    
+                    // Add ID to trackname label with smaller styling
+                    if (key === 'trackname' && properties['id']) {
+                        label.innerHTML = label_content + ':';
+                        const idSpan = document.createElement('span');
+                        idSpan.textContent = ' (ID: ' + properties['id'] + ')';
+                        idSpan.style.cssText = 'font-size: 12px; font-weight: normal; text-transform: uppercase; letter-spacing: 0.5px;';
+                        label.appendChild(idSpan);
+                    }
+                    
+                    // Override label styling for importance bar
+                    if (isImportanceBar) {
+                        label.style.setProperty('font-size', '12px', 'important');
+                        label.style.setProperty('margin-bottom', '0', 'important');
+                        label.style.setProperty('width', 'auto', 'important');
+                        label.style.setProperty('padding-top', '0', 'important');
+                        label.style.setProperty('padding-bottom', '4px', 'important');
+                        label.style.setProperty('display', 'block', 'important');
+                        console.log('Importance label styled:', label.textContent, label.style.cssText);
+                    }
+                    
+                    // Override label styling for date fields
+                    if (isDateField) {
+                        label.style.setProperty('font-size', '12px', 'important');
+                        label.style.setProperty('margin-bottom', '0', 'important');
+                        label.style.setProperty('width', 'auto', 'important');
+                        label.style.setProperty('padding-top', '0', 'important');
+                        label.style.setProperty('padding-bottom', '4px', 'important');
+                        label.style.setProperty('display', 'block', 'important');
+                    }
+                    
+                    // Override label styling for tracktype to match smaller fields
+                    if (key === 'tracktype') {
+                        label.style.setProperty('font-size', '12px', 'important');
+                    }
+                    
+                    flexContainer.appendChild(label);
+                    flexContainer.appendChild(input);
+                    
+                    // Add avatar after custodian input
+                    if (key === 'custodian' && properties[key]) {
+                        const custodianName = properties[key];
+                        const avatar = document.createElement('div');
+                        const initials = custodianName.split(' ').map(word => word.charAt(0).toUpperCase()).join('').substring(0, 2);
+                        avatar.textContent = initials;
+                        avatar.style.cssText = 'display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #B85450 0%, #FFD700 100%); color: white; font-size: 11px; font-weight: bold; font-family: Courier New, monospace; box-shadow: 0 2px 4px rgba(0,0,0,0.2); flex-shrink: 0;';
+                        avatar.title = 'Custodian: ' + custodianName;
+                        flexContainer.appendChild(avatar);
+                    }
+                    
+                    // Add separator line after custodian
+                    if (key === 'custodian') {
+                        flexContainer.style.borderBottom = '2px solid #FFD700';
+                        flexContainer.style.paddingBottom = '12px';
+                        flexContainer.style.marginBottom = '12px';
+                    }
+                    
+                    // Handle horizontal layout for importance + date fields
+                    if (isImportanceBar) {
+                        window.dateRowContainer.appendChild(flexContainer);
+                        editorDiv.appendChild(window.dateRowContainer);
+                    } else if (isDateField && window.dateRowContainer && window.dateRowContainer.parentNode) {
+                        // Append date fields to the existing dateRowContainer that's already in the DOM
+                        window.dateRowContainer.appendChild(flexContainer);
+                    } else {
+                        // Regular field - just append normally (don't clear dateRowContainer)
+                        editorDiv.appendChild(flexContainer);
+                    }
+                    
+                    console.log('Flex container appended for:', key);
                     //editorDiv.appendChild(meta);
-                    editorDiv.appendChild(input);
-                    editorDiv.appendChild(document.createElement('br'));
 
                     //Update meta content
                   
@@ -1579,6 +2024,28 @@ document.head.appendChild(style_control_rollback);
                     
                 
             }
+            
+            // Close the for loop here
+            }
+            
+            // Add unobtrusive View Track History link after all fields (outside for loop)
+            const historyLinkContainer = document.createElement('div');
+            historyLinkContainer.style.cssText = 'margin-top: 15px; padding-top: 10px; border-top: 1px solid #e0e0e0; text-align: center;';
+            
+            const historyLink = document.createElement('a');
+            historyLink.textContent = '📋 View Track History';
+            historyLink.href = '#';
+            historyLink.style.cssText = 'color: #666; font-size: 12px; text-decoration: none; cursor: pointer;';
+            historyLink.onmouseover = function() { this.style.color = '#4CAF50'; this.style.textDecoration = 'underline'; };
+            historyLink.onmouseout = function() { this.style.color = '#666'; this.style.textDecoration = 'none'; };
+            historyLink.onclick = function(e) {
+                e.preventDefault();
+                view_track_history_onclick(e);
+            };
+            
+            historyLinkContainer.appendChild(historyLink);
+            editorDiv.appendChild(historyLinkContainer);
+            
             //Add a save button
             /*
             const saveButton = document.createElement('button');
@@ -1607,14 +2074,10 @@ document.head.appendChild(style_control_rollback);
             else {rollbackControlDiv.style.visibility='hidden';}
       
 
-
             
 
         }//end if test for no feature classes
    
-
-    }
-
     // Handle user permission-based Track Information panels
     const activeButton = document.querySelector('.info-toggle-btn.active');
     if (activeButton) {
