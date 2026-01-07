@@ -27,7 +27,7 @@
         
         /* Dynamic height layout */
         #root {
-            height: calc(70vh - 90px);
+            height: calc(70vh - 110px);
             overflow: hidden;
         }
         
@@ -124,20 +124,32 @@
     #contextMenu .restore:hover {
       background: #f3f5ff;
     }
+    
+    /* Settings button style */
+    .settings-btn:hover {
+        background: rgba(255, 215, 0, 0.2) !important;
+    }
     </style>
 </head>
 <body>
 
     <!-- Top Navigation Bar - NZFS Authentic Style -->
-    <div class="w3_container w3-bar w3-mobile w3-top" style="height:90px; background: linear-gradient(to bottom, #B85450 0%, #8B3A3A 100%); border-bottom: 5px solid #5D2E2E; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+    <div class="w3_container w3-bar w3-mobile w3-top" style="height:110px; background: linear-gradient(to bottom, #B85450 0%, #8B3A3A 100%); border-bottom: 5px solid #5D2E2E; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
       <div class="w3-bar-item w3-mobile w3-left"><img src="images/permolat.jpg" style="padding-top:5px; border: 3px solid #5D2E2E; border-radius: 3px;"/></div> 
       <div class="w3-bar-item w3-mobile w3-left"><h3 style="color: #FFD700; font-weight:bold; text-shadow: 2px 2px 3px rgba(0,0,0,0.7); font-family: 'Courier New', monospace; letter-spacing: 1px;">PERMOLAT COMMUNITY TRACKS</h3></div> 
       <div class="w3-bar-item w3-button w3-mobile w3-middle" style="background: rgba(255,215,0,0.2); border: 2px solid #5D2E2E; margin-top: 20px; padding: 8px 12px;"><h6 id="total_length" style="color: #FFD700; font-weight:bold; margin: 0;"></h6></div>
-      <div class="w3-bar-item w3-mobile w3-right" style="padding-top: 30px;"><p id="username_field" style="color: #FFD700; font-weight: bold;"><p></div>
       <div class="w3-bar-item w3-button w3-mobile w3-right nzfs-btn" id="login" style="margin-top: 20px;">LOGIN</div>
       <div class="w3-bar-item w3-button w3-mobile w3-right nzfs-btn" style="margin-top: 20px;">GET INVOLVED</div>
       <div class="w3-bar-item w3-button w3-mobile w3-right nzfs-btn" style="margin-top: 20px;">ABOUT</div>
-
+      <div class="w3-bar-item w3-mobile" style="clear: both; width: 100%; text-align: center; padding-top: 5px; display: flex; justify-content: center; align-items: center; gap: 8px;">
+        <button id="settings_btn" class="settings-btn" style="display: none; background: none; border: none; cursor: pointer; padding: 4px; border-radius: 50%; transition: background 0.2s;" title="User Settings">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+        <p id="username_field" style="color: #FFD700; font-weight: bold; margin: 0; font-size: 14px; text-shadow: 1px 1px 2px rgba(0,0,0,0.7);"></p>
+      </div>
 
         <!-- Login modal-->
         <div id="loginModal" class="modal">
@@ -189,6 +201,20 @@
                         <h3>Profile Information</h3>
                         <div id="profileInfo"></div>
                         <button type="button" id="editProfileBtn">Edit Profile</button>
+                    </div>
+                    
+                    <div class="account-section">
+                        <h3>Email Preferences</h3>
+                        <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0; cursor: pointer;">
+                            <input type="checkbox" id="pref_email_updates" checked style="width: 18px; height: 18px;">
+                            <span>Receive track update notifications</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0; cursor: pointer;">
+                            <input type="checkbox" id="pref_email_newsletter" checked style="width: 18px; height: 18px;">
+                            <span>Receive newsletter and announcements</span>
+                        </label>
+                        <button type="button" id="saveEmailPrefsBtn" style="margin-top: 10px;">Save Preferences</button>
+                        <button type="button" id="unsubscribeAllBtn" style="margin-top: 10px; background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Unsubscribe from All</button>
                     </div>
                     
                     <div class="account-section">

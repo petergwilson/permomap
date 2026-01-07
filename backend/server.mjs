@@ -96,24 +96,62 @@ async function findOrCreateOAuthUser(profile, provider) {
         );
 
         if (user.rows.length > 0) {
-            // Update OAuth provider if not set
+            // Existing user found
+            // Update OAuth provider and updated_at timestamp if not set
             if (!user.rows[0].oauth_provider) {
                 await pool.query(
-                    'UPDATE permomap_users SET oauth_provider = $1, oauth_id = $2 WHERE userid = $3',
+                    `UPDATE permomap_users 
+                     SET oauth_provider = $1, oauth_id = $2, updated_at = NOW() 
+                     WHERE userid = $3`,
                     [provider, profile.id, user.rows[0].userid]
+                );
+                console.log(`Updated OAuth provider for existing user: ${email} (${provider})`);
+            } else {
+                // Just update the last login timestamp
+                await pool.query(
+                    'UPDATE permomap_users SET updated_at = NOW() WHERE userid = $1',
+                    [user.rows[0].userid]
                 );
             }
             return user.rows[0];
         }
 
-        // Create new user
+        // Create new user with OAuth
+        // Split displayName into firstname and lastname
+        const nameParts = displayName.trim().split(' ');
+        const firstname = nameParts[0] || displayName;
+        const lastname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : displayName;
+        const userinitial = firstname.charAt(0).toUpperCase() + (lastname ? lastname.charAt(0).toUpperCase() : '');
+        
+        // Generate a random color for the user (for edit tracking)
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
+        const usercolor = colors[Math.floor(Math.random() * colors.length)];
+        
         const result = await pool.query(
-            `INSERT INTO permomap_users (username, email, role, oauth_provider, oauth_id, created_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())
-             RETURNING userid, username, email, role`,
-            [displayName, email, 'user', provider, profile.id]
+            `INSERT INTO permomap_users (
+                username, email, role, oauth_provider, oauth_id, 
+                password, status, active, firstname, lastname, userinitial, usercolor, 
+                created_at, updated_at
+            )
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+             RETURNING userid, username, email, role, created_at`,
+            [
+                displayName,           // username
+                email,                 // email
+                'user',                // role (default for new OAuth users)
+                provider,              // oauth_provider (google, microsoft, linkedin)
+                profile.id,            // oauth_id
+                '',                    // password (empty for OAuth users)
+                'active',              // status
+                true,                  // active
+                firstname,             // firstname
+                lastname,              // lastname
+                userinitial,           // userinitial
+                usercolor              // usercolor
+            ]
         );
         
+        console.log(`New OAuth user created: ${email} (${provider}) at ${new Date().toISOString()}`);
         return result.rows[0];
     } catch (error) {
         throw new Error('Database error: ' + error.message);
@@ -220,7 +258,11 @@ app.get(`${BASE_PATH}/auth/google/callback`,
         req.session.userid = req.user.userid;
         req.session.username = req.user.username;
         req.session.role = req.user.role;
-        res.redirect(`${BASE_PATH}/?oauth=success`);
+        // In development, redirect to Vite dev server; in production, use BASE_PATH
+        const redirectUrl = process.env.NODE_ENV === 'development' 
+            ? `http://localhost:5173${BASE_PATH}/?oauth=success`
+            : `${BASE_PATH}/?oauth=success`;
+        res.redirect(redirectUrl);
     }
 );
 
@@ -235,7 +277,10 @@ app.get(`${BASE_PATH}/auth/microsoft/callback`,
         req.session.userid = req.user.userid;
         req.session.username = req.user.username;
         req.session.role = req.user.role;
-        res.redirect(`${BASE_PATH}/?oauth=success`);
+        const redirectUrl = process.env.NODE_ENV === 'development' 
+            ? `http://localhost:5173${BASE_PATH}/?oauth=success`
+            : `${BASE_PATH}/?oauth=success`;
+        res.redirect(redirectUrl);
     }
 );
 
@@ -250,7 +295,10 @@ app.get(`${BASE_PATH}/auth/linkedin/callback`,
         req.session.userid = req.user.userid;
         req.session.username = req.user.username;
         req.session.role = req.user.role;
-        res.redirect(`${BASE_PATH}/?oauth=success`);
+        const redirectUrl = process.env.NODE_ENV === 'development' 
+            ? `http://localhost:5173${BASE_PATH}/?oauth=success`
+            : `${BASE_PATH}/?oauth=success`;
+        res.redirect(redirectUrl);
     }
 );
 
@@ -461,6 +509,104 @@ app.post('/api/user/change-password', requireAuth, async (req, res) => {
     }
 });
 
+// Get user settings (email preferences)
+app.get('/api/user/settings', requireAuth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT userid, username, email, role, 
+                    COALESCE(email_updates, true) as email_updates,
+                    COALESCE(email_newsletter, true) as email_newsletter
+             FROM permomap_users WHERE userid = $1`,
+            [req.session.userid]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ ok: false, message: 'User not found' });
+        }
+        
+        res.status(200).json({ ok: true, settings: result.rows[0] });
+    } catch (error) {
+        console.error('Get settings error:', error);
+        res.status(500).json({ ok: false, message: 'Server error' });
+    }
+});
+
+// Update user settings (email preferences)
+app.put('/api/user/settings', requireAuth, async (req, res) => {
+    try {
+        const { email_updates, email_newsletter } = req.body;
+        
+        await pool.query(
+            `UPDATE permomap_users 
+             SET email_updates = $1, 
+                 email_newsletter = $2,
+                 updated_at = NOW()
+             WHERE userid = $3`,
+            [email_updates, email_newsletter, req.session.userid]
+        );
+        
+        res.status(200).json({ ok: true, message: 'Settings updated successfully' });
+    } catch (error) {
+        console.error('Update settings error:', error);
+        res.status(500).json({ ok: false, message: 'Server error' });
+    }
+});
+
+// Unsubscribe from all emails - logs the action
+app.post('/api/user/unsubscribe', requireAuth, async (req, res) => {
+    try {
+        const { reason } = req.body;
+        const userid = req.session.userid;
+        
+        // Get user info for logging
+        const userResult = await pool.query(
+            'SELECT username, email FROM permomap_users WHERE userid = $1',
+            [userid]
+        );
+        
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ ok: false, message: 'User not found' });
+        }
+        
+        const user = userResult.rows[0];
+        
+        // Update user preferences to unsubscribe
+        await pool.query(
+            `UPDATE permomap_users 
+             SET email_updates = false, 
+                 email_newsletter = false,
+                 updated_at = NOW()
+             WHERE userid = $1`,
+            [userid]
+        );
+        
+        // Log the unsubscribe action in the database
+        await pool.query(
+            `INSERT INTO permomap_user_activity_log 
+             (userid, action_type, action_details, ip_address, user_agent, created_at)
+             VALUES ($1, 'unsubscribe', $2, $3, $4, NOW())`,
+            [
+                userid,
+                JSON.stringify({
+                    reason: reason || 'User requested unsubscribe',
+                    username: user.username,
+                    email: user.email,
+                    timestamp: new Date().toISOString()
+                }),
+                req.ip || req.connection.remoteAddress,
+                req.get('User-Agent')
+            ]
+        );
+        
+        console.log(`User ${user.username} (${user.email}) unsubscribed at ${new Date().toISOString()}`);
+        
+        res.status(200).json({ ok: true, message: 'Successfully unsubscribed from all emails' });
+    } catch (error) {
+        console.error('Unsubscribe error:', error);
+        res.status(500).json({ ok: false, message: 'Server error' });
+    }
+});
+
 // Delete user account
 app.delete('/api/user/account', requireAuth, async (req, res) => {
     try {
@@ -500,8 +646,8 @@ app.delete('/api/user/account', requireAuth, async (req, res) => {
 // Admin: Get all users (admin only)
 app.get('/api/admin/users', requireAuth, async (req, res) => {
     try {
-        if (req.session.role !== 'admin') {
-            return res.status(403).json({ ok: false, message: 'Admin access required' });
+        if (req.session.role !== 'sysadmin') {
+            return res.status(403).json({ ok: false, message: 'System administrator access required' });
         }
         
         const result = await pool.query(
@@ -520,8 +666,8 @@ app.get('/api/admin/users', requireAuth, async (req, res) => {
 // Admin: Delete user (admin only)
 app.delete('/api/admin/users/:userid', requireAuth, async (req, res) => {
     try {
-        if (req.session.role !== 'admin') {
-            return res.status(403).json({ ok: false, message: 'Admin access required' });
+        if (req.session.role !== 'sysadmin') {
+            return res.status(403).json({ ok: false, message: 'System administrator access required' });
         }
         
         const { userid } = req.params;
