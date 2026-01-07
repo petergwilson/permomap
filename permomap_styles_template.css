@@ -19,7 +19,8 @@
     border: none;
     pointer-events: none; /* Disable editing for public */
     opacity: 1;
-    color: #333;
+    color: #000;
+    flex: 1;
 }
 
 /* Track name for public - larger and bold but still read-only style */
@@ -36,18 +37,33 @@
     border: none;
     padding: 6px 0;
     font-size: 13px;
-    color: #333;
+    color: #000;
     pointer-events: none;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
+    flex: 1;
 }
 
-.permomap_style_public label,
-.permomap_style_public div[style*="fontWeight"] {
-    /* Smaller labels for public */
-    font-size: 12px !important;
+/* Consistent label styling for all roles */
+.permomap_style_public label {
+    font-size: 12px;
+    margin: 0;
     margin-bottom: 2px;
+    color: #1B5E20;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: bold;
+    min-width: 120px;
+}
+
+.permomap_style_public .track-id-label {
+    font-size: 10px;
+    font-weight: normal;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #1B5E20;
+    opacity: 0.8;
 }
 
 .permomap_style_public br {
@@ -57,98 +73,122 @@
 
 
 /* ============================================
-   REGISTERED USERS - Editable, Comfortable Layout
+   REGISTERED USERS - Same styling as public, but editable
    ============================================ */
 .permomap_style_users {
-    /* More spacious layout for editing */
+    /* Same compact layout as public */
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 8px;
 }
 
 .permomap_style_users .editable-field {
-    /* Full editing capabilities with better spacing */
-    padding: 10px;
-    font-size: 14px;
-    min-height: 40px;
-    background: white;
-    border: 3px solid #5D2E2E;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    flex: 1;
-    min-width: 0;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
-    box-sizing: border-box;
-    pointer-events: auto; /* Explicitly enable editing */
+    /* Same appearance as public, but editable */
+    padding: 6px 0;
+    font-size: 13px;
+    background: transparent;
+    border: none;
+    opacity: 1;
+    color: #000;
+    pointer-events: auto; /* Enable editing */
     cursor: text;
+    flex: 1;
 }
 
-.permomap_style_users .editable-field:hover {
-    border-color: #B85450;
-    box-shadow: 0 0 6px rgba(184, 84, 80, 0.3);
+.permomap_style_users .editable-field:focus {
+    outline: 1px solid #B85450;
+    outline-offset: 2px;
 }
 
-/* Track name for users - larger and bold with prominent styling */
+/* Track name for users - same as public */
 .permomap_style_users .editable-field[name="editable-trackname"] {
     font-size: 18px;
     font-weight: bold;
-    padding: 12px;
+    padding: 8px 0;
+    color: #000;
 }
 
-/* Date fields for users - fixed width */
+/* Date fields for users - same appearance as public */
 .permomap_style_users .date-field {
-    flex: none !important;
-    width: 150px !important;
-    border: 3px solid #5D2E2E;
-    padding: 8px;
-    box-sizing: border-box;
-    pointer-events: auto; /* Explicitly enable interaction */
+    background: transparent;
+    border: none;
+    padding: 6px 0;
+    font-size: 13px;
+    color: #000;
+    pointer-events: auto;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    flex: 1;
 }
 
-.permomap_style_users .date-field:hover {
-    border-color: #B85450;
-    box-shadow: 0 0 6px rgba(184, 84, 80, 0.3);
+/* Consistent label styling - same as public */
+.permomap_style_users label {
+    font-size: 12px;
+    margin: 0;
+    margin-bottom: 2px;
+    color: #1B5E20;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: bold;
+    min-width: 120px;
 }
 
+.permomap_style_users .track-id-label {
+    font-size: 10px;
+    font-weight: normal;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #1B5E20;
+    opacity: 0.8;
+}
 /* Custodian field - locked state styling */
 .permomap_style_users .editable-field[contenteditable="false"] {
-    background: #f5f5f5;
+    opacity: 0.6;
     cursor: not-allowed;
-    opacity: 0.7;
-    border-style: dashed;
 }
 
 .permomap_style_users label,
 .permomap_style_users div[style*="fontWeight"] {
-    /* Standard label sizing */
-    font-size: 14px !important;
-    color: #5D2E2E;
-    margin-bottom: 4px;
+    /* Same as public */
+    font-size: 12px !important;
+    margin-bottom: 2px;
 }
 
 .permomap_style_users br {
-    /* Standard spacing */
-    line-height: 1;
+    /* Same as public */
+    line-height: 0.5;
 }
 
 
 /* ============================================
-   MODERATORS - Additional Metadata + Expanded Layout
+   MODERATORS - Same styling as public, with metadata visible
    ============================================ */
 .permomap_style_moderator {
-    /* Extra spacing for metadata displays */
-    gap: 20px;
+    /* Same compact layout as public */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .permomap_style_moderator .editable-field {
-    /* Larger fields to accommodate version info */
-    min-height: 60px;
-    padding: 12px;
-    font-size: 14px;
-    line-height: 2.2; /* More space for inline metadata */
-    position: relative;
-    pointer-events: auto; /* Explicitly enable editing */
+    /* Same appearance as public, but editable with space for metadata */
+    padding: 6px 0;
+    font-size: 13px;
+    background: transparent;
+    border: none;
+    opacity: 1;
+    color: #000;
+    line-height: 2.2; /* Extra line height for inline metadata */
+    pointer-events: auto; /* Enable editing */
     cursor: text;
+    flex: 1;
+}
+
+.permomap_style_moderator .editable-field:focus {
+    outline: 1px solid #B85450;
+    outline-offset: 2px;
 }
 
 /* Show edit metadata for moderators */
@@ -157,30 +197,78 @@
     font-size: 10px;
     color: #FFD700;
     font-style: italic;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     border-left: 3px solid #FFD700;
     padding-left: 6px;
     background: rgba(255, 215, 0, 0.05);
 }
 
+/* Track name for moderators - same as public */
+.permomap_style_moderator .editable-field[name="editable-trackname"] {
+    font-size: 18px;
+    font-weight: bold;
+    padding: 8px 0;
+    color: #000;
+}
+
+/* Date fields for moderators - same as public */
+.permomap_style_moderator .date-field {
+    background: transparent;
+    border: none;
+    padding: 6px 0;
+    font-size: 13px;
+    color: #000;
+    pointer-events: auto;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    flex: 1;
+}
+
+/* Consistent label styling - same as public */
+.permomap_style_moderator label {
+    font-size: 12px;
+    margin: 0;
+    margin-bottom: 2px;
+    color: #1B5E20;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: bold;
+    min-width: 120px;
+}
+
+.permomap_style_moderator .track-id-label {
+    font-size: 10px;
+    font-weight: normal;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #1B5E20;
+    opacity: 0.8;
+}
+/* Custodian field - locked state */
+.permomap_style_moderator .editable-field[contenteditable="false"] {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .permomap_style_moderator label,
 .permomap_style_moderator div[style*="fontWeight"] {
-    /* Prominent labels for moderators */
-    font-size: 15px !important;
-    font-weight: 900 !important;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    /* Same as public */
+    font-size: 12px !important;
+    margin-bottom: 2px;
 }
 
 .permomap_style_moderator br {
-    /* Increased spacing for readability */
-    line-height: 1.5;
+    /* Same as public */
+    line-height: 0.5;
 }
 
 /* Highlight changed fields for moderators */
 .permomap_style_moderator .editable-field:has(span[style*="color"]) {
-    border-left: 5px solid #FFD700;
-    background: linear-gradient(to right, rgba(255, 215, 0, 0.08) 0%, white 20%);
+    border-left: 3px solid #FFD700;
+    background: rgba(255, 215, 0, 0.05);
+    padding-left: 4px;
 }
 
 

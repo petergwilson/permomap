@@ -80,7 +80,6 @@ ALTER TABLE public.permolat_tracks OWNER TO postgres;
 
 CREATE TABLE public.permolat_track_versions (
     version_id bigint NOT NULL,
-    parent_version_id bigint,
     comments text NOT NULL,
     added_by integer NOT NULL,
     added_timestamp timestamp with time zone NOT NULL,

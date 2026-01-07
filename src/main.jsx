@@ -1041,9 +1041,6 @@ loginSubmitButton.addEventListener("click", async(event) =>{
             pg_public.getSource().refresh(); // Redraw the layer
             reloadMapAtCurrentLocation(map);
 
-            //Make rollforward div hidden
-            rollbackControlDiv.style.visibility='hidden';
-
             return responseData;
 
         } catch (error) {
@@ -1053,11 +1050,40 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         
     }//end rollback
 
+    // Fetch version count for a track and update badge
+    async function fetchVersionCount(trackId, badgeElement) {
+        try {
+            const response = await fetch(`/api/track-versions/${trackId}`);
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            if (!data.success) return;
+            
+            // Count pending versions
+            const pendingCount = data.versions.filter(v => v.status === 'pending').length;
+            const totalVersions = data.versions.length;
+            
+            if (totalVersions > 0) {
+                badgeElement.style.display = 'inline';
+                if (pendingCount > 0) {
+                    badgeElement.textContent = `${pendingCount} pending`;
+                    badgeElement.style.background = '#FF9800';
+                } else {
+                    badgeElement.textContent = `${totalVersions} edit${totalVersions !== 1 ? 's' : ''}`;
+                    badgeElement.style.background = '#4CAF50';
+                }
+            }
+        } catch (error) {
+            console.log('Could not fetch version count:', error.message);
+        }
+    }
+
     // Handle button click for view track history
     async function view_track_history_onclick(e) {
         e.preventDefault();
         
-        const bottomPanel = document.getElementById('bottom-panel');
+        const diffPanel = document.getElementById('bottom-panel-diff');
+        const geometryPanel = document.getElementById('bottom-panel-geometry');
         
         // Get the currently selected feature
         if (!window.lastSelectedFeature) {
@@ -1069,25 +1095,614 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         const trackId = properties.id;
         const trackName = properties.trackname || 'Unknown Track';
         
+        console.log('Fetching track history for trackId:', trackId, 'trackName:', trackName);
+        
         // Show loading message
-        bottomPanel.innerHTML = '<div style="padding: 20px; text-align: center; color: white;"><h3>Loading track history...</h3></div>';
+        diffPanel.innerHTML = '<div style="padding: 10px; text-align: center; color: #333;"><h5>Loading track history...</h5></div>';
+        geometryPanel.innerHTML = '<div style="padding: 10px; text-align: center; color: #333;"><h5>Loading geometries...</h5></div>';
         
         try {
-            // TODO: Implement API call to fetch track history
-            // For now, show placeholder
-            bottomPanel.innerHTML = `
-                <div style="padding: 20px; font-family: Arial, sans-serif; color: white;">
-                    <h3 style="color: #FFD700; margin-bottom: 15px; border-bottom: 2px solid #FFD700; padding-bottom: 8px;">Track History: ${trackName}</h3>
-                    <p style="color: #FDE8E7; font-size: 14px; margin-bottom: 10px;"><strong>Track ID:</strong> ${trackId}</p>
-                    <div style="margin-top: 20px; padding: 15px; background: rgba(255, 255, 255, 0.15); border-left: 4px solid #FFD700; border-radius: 4px;">
-                        <p style="margin: 0; font-style: italic; color: #FFD700; font-size: 16px;">📋 History feature coming soon...</p>
-                        <p style="margin-top: 10px; font-size: 12px; color: #FDE8E7;">This will display all historical changes, maintenance records, and track modifications.</p>
+            console.log('Making fetch request to:', `/api/track-versions/${trackId}`);
+            const response = await fetch(`/api/track-versions/${trackId}`, {
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            console.log('Response status:', response.status, 'ok:', response.ok);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response not OK. Status:', response.status, 'Body:', errorText);
+                throw new Error('Failed to fetch track versions: ' + response.status);
+            }
+            
+            const data = await response.json();
+            console.log('Response data:', data);
+            
+            if (!data.success) {
+                throw new Error(data.message || 'Unknown error');
+            }
+            
+            // Handle case where there are no versions yet
+            if (data.versions.length === 0) {
+                diffPanel.innerHTML = `
+                    <div style="padding: 10px; font-family: 'Courier New', monospace; color: #333;">
+                        <div style="margin-bottom: 10px; border-bottom: 2px solid #1976d2; padding-bottom: 5px;">
+                            <h5 style="color: #1976d2; margin: 0; font-size: 12px;">📋 ${trackName}</h5>
+                        </div>
+                        <div style="text-align: center; padding: 20px 10px; color: #666;">
+                            <p style="font-size: 12px; margin-bottom: 5px;">🌱 No edit history yet</p>
+                            <p style="font-size: 11px;">Make changes and save to create the first version.</p>
+                        </div>
+                    </div>
+                `;
+                geometryPanel.innerHTML = '<div style="padding: 10px; text-align: center; color: #666; font-size: 11px;">No geometry versions</div>';
+                return;
+            }
+            
+            // Build the diff display HTML for the diff panel
+            const versionsHtml = buildVersionDiffDisplay(data.versions, data.trackedFields, trackName);
+            diffPanel.innerHTML = versionsHtml;
+            
+            // Build the geometry versions panel
+            const geometryHtml = buildGeometryVersionsPanel(data.versions, trackId, trackName);
+            geometryPanel.innerHTML = geometryHtml;
+            
+        } catch (error) {
+            console.error('Error fetching track history:', error);
+            diffPanel.innerHTML = `<div style="padding: 10px; color: #d32f2f; font-size: 11px;">⚠️ Error: ${error.message}</div>`;
+        }
+    }
+
+    // Build a git-like diff display for track versions
+    function buildVersionDiffDisplay(versions, trackedFields, trackName) {
+        // Field labels for display
+        const fieldLabels = {
+            trackname: 'Track Name',
+            importance: 'Importance',
+            tracktype: 'Track Type',
+            currentcon: 'Current Condition',
+            custodian: 'Custodian',
+            lastcut: 'Last Cut',
+            nextcut: 'Next Cut'
+        };
+        
+        // Format date for display
+        const formatDate = (timestamp) => {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp);
+            return date.toLocaleString('en-NZ', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
+        
+        // Format Unix timestamp (for lastcut/nextcut)
+        const formatUnixDate = (val) => {
+            if (!val) return 'Not set';
+            // Check if it's already a timestamp number
+            const timestamp = typeof val === 'number' ? val : parseFloat(val);
+            if (isNaN(timestamp)) return String(val);
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleDateString('en-NZ', { year: 'numeric', month: 'short', day: 'numeric' });
+        };
+        
+        // Build header - compact for quarter panel
+        let html = `
+            <div style="padding: 8px; font-family: 'Courier New', monospace; color: #333;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 2px solid #1976d2; padding-bottom: 5px;">
+                    <h5 style="color: #1976d2; margin: 0; font-size: 11px;">📋 ${trackName}</h5>
+                    <span style="color: #666; font-size: 10px;">${versions.length} ver.</span>
+                </div>
+        `;
+        
+        // Build version timeline (reversed to show newest first)
+        const reversedVersions = [...versions].reverse();
+        
+        reversedVersions.forEach((version, idx) => {
+            const isFirstVersion = version.isFirstVersion;
+            const hasDiffs = Object.keys(version.diffs || {}).length > 0;
+            
+            // Version header styling
+            const headerColor = version.status === 'approved' ? '#2196F3' : '#FF9800';
+            const statusBadge = version.status || 'pending';
+            const userId = window.session_info?.userid;
+            const userRole = window.session_info?.role;
+            const isLoggedIn = userId && userRole !== 'public';
+            const canContactAuthor = isLoggedIn && version.added_by !== userId && version.added_by;
+            
+            html += `
+                <div style="margin-bottom: 8px; background: #f9f9f9; border-radius: 4px; border-left: 3px solid ${headerColor}; overflow: hidden; border: 1px solid #ddd; font-size: 10px;">
+                    <!-- Version Header -->
+                    <div style="padding: 4px 6px; background: #e8e8e8; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <span style="font-weight: bold; color: ${headerColor};">v${version.version_id}</span>
+                            <span style="background: ${headerColor}; color: white; padding: 1px 4px; border-radius: 6px; font-size: 8px; text-transform: uppercase;">${statusBadge}</span>
+                        </div>
+                        <div style="font-size: 9px; color: #555;">${formatDate(version.added_timestamp)}</div>
+                    </div>
+                    
+                    <!-- Author Info - compact with message button -->
+                    <div style="padding: 3px 6px; background: #f0f0f0; font-size: 9px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="color: #1976d2;">👤 ${version.added_by_username || 'Unknown'}</span>
+                            ${version.reviewed_by ? `<span style="color: #388e3c; margin-left: 8px;">✅</span>` : ''}
+                            ${version.moderated_by ? `<span style="color: #7b1fa2; margin-left: 4px;">🛡️</span>` : ''}
+                        </div>
+                        ${canContactAuthor ? `<button onclick="window.contactVersionAuthor(${version.version_id}, '${version.added_by_username}')" 
+                            style="background: #9C27B0; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 8px; cursor: pointer;">✉️ Message</button>` : ''}
+                    </div>
+                    
+                    <!-- Diff Content -->
+                    <div style="padding: 6px 8px;">
+            `;
+            
+            if (hasDiffs) {
+                // Show diffs with strikethrough for removed and underline for added
+                html += `<div style="display: flex; flex-direction: column; gap: 4px;">`;
+                
+                Object.entries(version.diffs).forEach(([field, diff]) => {
+                    const oldVal = (field === 'lastcut' || field === 'nextcut') ? formatUnixDate(diff.old) : (diff.old || '<em>empty</em>');
+                    const newVal = (field === 'lastcut' || field === 'nextcut') ? formatUnixDate(diff.new) : (diff.new || '<em>empty</em>');
+                    
+                    html += `
+                        <div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; overflow: hidden; font-size: 10px;">
+                            <div style="padding: 3px 6px; background: #e0e0e0; font-weight: 600; color: #333;">
+                                ${fieldLabels[field] || field}
+                            </div>
+                            <div style="padding: 4px 6px; font-family: 'Courier New', monospace;">
+                                <span style="color: #c62828; text-decoration: line-through; background: #ffcdd2; padding: 1px 3px; border-radius: 2px;">${oldVal}</span>
+                                <span style="color: #666; margin: 0 4px;">→</span>
+                                <span style="color: #2e7d32; text-decoration: underline; background: #c8e6c9; padding: 1px 3px; border-radius: 2px;">${newVal}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            } else {
+                html += `<div style="color: #666; font-style: italic; font-size: 10px;">No field changes</div>`;
+            }
+            
+            // Comments - compact version
+            if (version.comments && version.comments !== 'Original') {
+                html += `
+                    <div style="margin-top: 6px; padding: 4px 6px; background: #fff9e6; border-left: 2px solid #ffa726; border-radius: 2px; font-size: 10px;">
+                        <span style="color: #333;">${version.comments}</span>
+                    </div>
+                `;
+            }
+            
+            // Action buttons - compact for panel (removed, will be in comments panel)
+            const userRole = window.session_info?.role;
+            const userId = window.session_info?.userid;
+            const canReview = !version.reviewed_by && version.added_by !== userId && userRole && userRole !== 'public';
+            const canModerate = version.status === 'pending' && (userRole === 'moderator' || userRole === 'sysadmin');
+            const isLoggedIn = userId && userRole !== 'public';
+            const canContactAuthor = isLoggedIn && version.added_by !== userId && version.added_by;
+            
+            // Action buttons section
+            if (canReview || canModerate || isLoggedIn) {
+                html += `
+                    <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e0e0e0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                `;
+                
+                if (canReview) {
+                    html += `
+                        <button onclick="window.submitPeerReview(${version.version_id})" 
+                                style="background: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            ✅ Peer Review
+                        </button>
+                    `;
+                }
+                
+                if (canModerate) {
+                    html += `
+                        <button onclick="window.submitModeration(${version.version_id}, 'approve')" 
+                                style="background: #2196F3; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            🛡️ Approve
+                        </button>
+                        <button onclick="window.submitModeration(${version.version_id}, 'reject')" 
+                                style="background: #F44336; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            ❌ Reject
+                        </button>
+                    `;
+                }
+                
+                // Comment and contact buttons for all logged-in users
+                if (isLoggedIn) {
+                    html += `
+                        <button onclick="window.addVersionComment(${version.version_id})" 
+                                style="background: #607D8B; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            💬 Add Comment
+                        </button>
+                    `;
+                    
+                    if (canContactAuthor) {
+                        html += `
+                            <button onclick="window.contactVersionAuthor(${version.version_id}, '${version.added_by_username}')" 
+                                    style="background: #9C27B0; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                ✉️ Contact Author
+                            </button>
+                        `;
+                    }
+                }
+                
+                html += `</div>`;
+            }
+            
+            html += `
                     </div>
                 </div>
             `;
+        });
+        
+        html += `</div>`;
+        return html;
+    }
+
+    // Build comments panel content
+    function buildCommentsPanel(versions) {
+        let html = `
+            <div style="padding: 8px; font-family: 'Courier New', monospace; color: #333;">
+                <div style="margin-bottom: 8px; border-bottom: 2px solid #607D8B; padding-bottom: 5px;">
+                    <h5 style="color: #607D8B; margin: 0; font-size: 11px;">💬 Discussion & Actions</h5>
+                </div>
+        `;
+        
+        const reversedVersions = [...versions].reverse();
+        
+        reversedVersions.forEach((version) => {
+            const userRole = window.session_info?.role;
+            const userId = window.session_info?.userid;
+            const canReview = !version.reviewed_by && version.added_by !== userId && userRole && userRole !== 'public';
+            const canModerate = version.status === 'pending' && (userRole === 'moderator' || userRole === 'sysadmin');
+            const isLoggedIn = userId && userRole !== 'public';
+            const canContactAuthor = isLoggedIn && version.added_by !== userId && version.added_by;
+            
+            html += `
+                <div style="margin-bottom: 8px; padding: 6px; background: #f5f5f5; border-radius: 4px; border: 1px solid #ddd; font-size: 10px;">
+                    <div style="font-weight: bold; color: #333; margin-bottom: 4px;">v${version.version_id} - ${version.added_by_username || 'Unknown'}</div>
+                    
+                    <div id="comments-${version.version_id}" data-version-id="${version.version_id}" style="margin-bottom: 6px;">
+                        <!-- Comments will be loaded here -->
+                    </div>
+                    
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            `;
+            
+            if (canReview) {
+                html += `<button onclick="window.submitPeerReview(${version.version_id})" 
+                        style="background: #4CAF50; color: white; border: none; padding: 3px 6px; border-radius: 3px; font-size: 9px; cursor: pointer;">✅ Review</button>`;
+            }
+            
+            if (canModerate) {
+                html += `<button onclick="window.submitModeration(${version.version_id}, 'approve')" 
+                        style="background: #2196F3; color: white; border: none; padding: 3px 6px; border-radius: 3px; font-size: 9px; cursor: pointer;">🛡️ Approve</button>`;
+                html += `<button onclick="window.submitModeration(${version.version_id}, 'reject')" 
+                        style="background: #F44336; color: white; border: none; padding: 3px 6px; border-radius: 3px; font-size: 9px; cursor: pointer;">❌ Reject</button>`;
+            }
+            
+            if (isLoggedIn) {
+                html += `<button onclick="window.addVersionComment(${version.version_id})" 
+                        style="background: #607D8B; color: white; border: none; padding: 3px 6px; border-radius: 3px; font-size: 9px; cursor: pointer;">💬 Comment</button>`;
+                
+                if (canContactAuthor) {
+                    html += `<button onclick="window.contactVersionAuthor(${version.version_id}, '${version.added_by_username}')" 
+                            style="background: #9C27B0; color: white; border: none; padding: 3px 6px; border-radius: 3px; font-size: 9px; cursor: pointer;">✉️ Contact</button>`;
+                }
+            }
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+        return html;
+    }
+
+    // Build geometry versions panel
+    function buildGeometryVersionsPanel(versions, trackId, trackName) {
+        let html = `
+            <div style="padding: 8px; font-family: 'Courier New', monospace; color: #333;">
+                <div style="margin-bottom: 8px; border-bottom: 2px solid #ff5722; padding-bottom: 5px;">
+                    <h5 style="color: #ff5722; margin: 0; font-size: 11px;">🗺️ Geometry Versions</h5>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <button onclick="window.clearGeometryOverlay()" 
+                            style="background: #757575; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer; width: 100%;">
+                        🗑️ Clear All Overlays
+                    </button>
+                </div>
+        `;
+        
+        const reversedVersions = [...versions].reverse();
+        
+        // Color palette for different versions
+        const colors = ['#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#00bcd4', '#009688', '#4caf50', '#ff9800', '#ff5722'];
+        
+        reversedVersions.forEach((version, idx) => {
+            const color = colors[idx % colors.length];
+            const hasGeometry = version.geom_wkt || version.has_geometry;
+            
+            html += `
+                <div style="margin-bottom: 6px; padding: 6px; background: #f5f5f5; border-radius: 4px; border: 1px solid #ddd; border-left: 3px solid ${color}; font-size: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; color: #333;">v${version.version_id}</span>
+                        <span style="color: #666; font-size: 9px;">${version.added_by_username || 'Unknown'}</span>
+                    </div>
+                    <div style="margin-top: 4px;">
+                        <button onclick="window.showGeometryVersion(${version.version_id}, '${color}')" 
+                                style="background: ${color}; color: white; border: none; padding: 3px 8px; border-radius: 3px; font-size: 9px; cursor: pointer; margin-right: 4px;">
+                            👁️ Show on Map
+                        </button>
+                        <button onclick="window.hideGeometryVersion(${version.version_id})" 
+                                style="background: #9e9e9e; color: white; border: none; padding: 3px 8px; border-radius: 3px; font-size: 9px; cursor: pointer;">
+                            Hide
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+        return html;
+    }
+
+    // Geometry overlay management
+    window.geometryOverlays = {};
+    
+    // Show geometry version on map
+    window.showGeometryVersion = async function(versionId, color) {
+        try {
+            // Fetch geometry for this version
+            const response = await fetch(`/api/version-geometry/${versionId}`);
+            const data = await response.json();
+            
+            if (!data.success || !data.geometry) {
+                alert('No geometry available for this version');
+                return;
+            }
+            
+            // Remove existing overlay for this version if exists
+            if (window.geometryOverlays[versionId]) {
+                map.removeLayer(window.geometryOverlays[versionId]);
+            }
+            
+            // Create GeoJSON format for OpenLayers
+            const geojsonFormat = new ol.format.GeoJSON();
+            const feature = geojsonFormat.readFeature(data.geometry, {
+                dataProjection: 'EPSG:3857',
+                featureProjection: 'EPSG:3857'
+            });
+            
+            // Create vector source and layer
+            const vectorSource = new ol.source.Vector({
+                features: [feature]
+            });
+            
+            const vectorLayer = new ol.layer.Vector({
+                source: vectorSource,
+                style: new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: color,
+                        width: 4,
+                        lineDash: [8, 4]
+                    })
+                }),
+                zIndex: 100
+            });
+            
+            // Add layer to map
+            map.addLayer(vectorLayer);
+            window.geometryOverlays[versionId] = vectorLayer;
+            
+            // Optionally zoom to feature
+            const extent = vectorSource.getExtent();
+            map.getView().fit(extent, { padding: [50, 50, 50, 50], maxZoom: 16 });
+            
         } catch (error) {
-            console.error('Error fetching track history:', error);
-            bottomPanel.innerHTML = '<div style="padding: 20px; color: #FFD700; font-weight: bold;">⚠️ Error loading track history</div>';
+            console.error('Error showing geometry version:', error);
+            alert('Error loading geometry: ' + error.message);
+        }
+    };
+    
+    // Hide specific geometry version
+    window.hideGeometryVersion = function(versionId) {
+        if (window.geometryOverlays[versionId]) {
+            map.removeLayer(window.geometryOverlays[versionId]);
+            delete window.geometryOverlays[versionId];
+        }
+    };
+    
+    // Clear all geometry overlays
+    window.clearGeometryOverlay = function() {
+        Object.keys(window.geometryOverlays).forEach(versionId => {
+            map.removeLayer(window.geometryOverlays[versionId]);
+        });
+        window.geometryOverlays = {};
+    };
+
+    // Submit peer review for a track version
+    window.submitPeerReview = async function(versionId) {
+        const comments = prompt('Optional: Add review comments');
+        
+        try {
+            const response = await fetch('/api/review', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ version_id: versionId, comments: comments || '' })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Peer review submitted successfully!');
+                // Refresh the history display
+                if (window.lastSelectedFeature) {
+                    const fakeEvent = { preventDefault: () => {} };
+                    view_track_history_onclick(fakeEvent);
+                }
+            } else {
+                alert('Error: ' + (data.message || 'Failed to submit review'));
+            }
+        } catch (error) {
+            console.error('Review error:', error);
+            alert('Error submitting review: ' + error.message);
+        }
+    };
+
+    // Submit moderation decision for a track version
+    window.submitModeration = async function(versionId, action) {
+        const actionText = action === 'approve' ? 'approve' : 'reject';
+        if (!confirm(`Are you sure you want to ${actionText} this track version?`)) {
+            return;
+        }
+        
+        const comments = prompt(`Optional: Add ${actionText} comments`);
+        
+        try {
+            const response = await fetch('/api/moderate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ version_id: versionId, action: action, comments: comments || '' })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert(`Track version ${actionText}d successfully!`);
+                // Refresh the history display
+                if (window.lastSelectedFeature) {
+                    const fakeEvent = { preventDefault: () => {} };
+                    view_track_history_onclick(fakeEvent);
+                }
+            } else {
+                alert('Error: ' + (data.message || `Failed to ${actionText} version`));
+            }
+        } catch (error) {
+            console.error('Moderation error:', error);
+            alert(`Error ${actionText}ing version: ` + error.message);
+        }
+    };
+
+    // Add comment to a track version
+    window.addVersionComment = async function(versionId) {
+        const commentText = prompt('Enter your comment:');
+        
+        if (!commentText || commentText.trim() === '') {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/version-comment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ version_id: versionId, comment_text: commentText })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Comment added successfully!');
+                // Reload comments for this version
+                await loadVersionComments(versionId);
+            } else {
+                alert('Error: ' + (data.message || 'Failed to add comment'));
+            }
+        } catch (error) {
+            console.error('Comment error:', error);
+            alert('Error adding comment: ' + error.message);
+        }
+    };
+
+    // Contact version author
+    window.contactVersionAuthor = async function(versionId, authorUsername) {
+        const message = prompt(`Send a message to ${authorUsername} about this edit:`);
+        
+        if (!message || message.trim() === '') {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/contact-author', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ version_id: versionId, message: message })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert(`Message sent to ${authorUsername}!`);
+                // Reload comments to show the message
+                await loadVersionComments(versionId);
+            } else {
+                alert('Error: ' + (data.message || 'Failed to send message'));
+            }
+        } catch (error) {
+            console.error('Contact author error:', error);
+            alert('Error sending message: ' + error.message);
+        }
+    };
+
+    // Load comments for a specific version
+    async function loadVersionComments(versionId) {
+        try {
+            const response = await fetch(`/api/version-comments/${versionId}`);
+            const data = await response.json();
+            
+            if (data.success && data.comments.length > 0) {
+                const commentsContainer = document.getElementById(`comments-${versionId}`);
+                if (!commentsContainer) return;
+                
+                let html = '<div style="margin-top: 10px; padding: 10px; background: #fafafa; border-radius: 4px; border: 1px solid #e0e0e0;">';
+                html += '<div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 12px;">💬 Discussion:</div>';
+                
+                data.comments.forEach(comment => {
+                    const isModerator = comment.is_moderator_comment;
+                    const moderatorBadge = isModerator ? '<span style="background: #9C27B0; color: white; padding: 1px 6px; border-radius: 3px; font-size: 10px; margin-left: 5px;">MOD</span>' : '';
+                    
+                    html += `
+                        <div style="margin-bottom: 8px; padding: 8px; background: white; border-left: 3px solid ${isModerator ? '#9C27B0' : '#607D8B'}; border-radius: 3px;">
+                            <div style="font-size: 11px; color: #666; margin-bottom: 4px;">
+                                <strong style="color: #333;">${comment.username}</strong>${moderatorBadge}
+                                <span style="margin-left: 8px;">${new Date(comment.created_at).toLocaleString()}</span>
+                            </div>
+                            <div style="font-size: 12px; color: #333;">${escapeHtml(comment.comment_text)}</div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                commentsContainer.innerHTML = html;
+            }
+        } catch (error) {
+            console.error('Error loading comments:', error);
+        }
+    }
+
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Load comments for all versions after building the diff display
+    async function loadAllVersionComments() {
+        const commentContainers = document.querySelectorAll('[id^="comments-"]');
+        for (const container of commentContainers) {
+            const versionId = container.getAttribute('data-version-id');
+            if (versionId) {
+                await loadVersionComments(versionId);
+            }
         }
     }
 
@@ -1124,10 +1739,6 @@ loginSubmitButton.addEventListener("click", async(event) =>{
             pg_public.getSource().changed(); // Redraw the layer
             pg_public.getSource().refresh(); // Redraw the layer
             reloadMapAtCurrentLocation(map);
-
-            //Make rollforward div hidden
-            rollforwardControlDiv.style.visibility='hidden';
-
 
             //map.updateSize(); //update map
 
@@ -1198,7 +1809,8 @@ loginSubmitButton.addEventListener("click", async(event) =>{
 // 1. Create the Control Element
 const saveControlDiv = document.createElement('div');
 saveControlDiv.className = 'custom-save-control';
-saveControlDiv.innerHTML = '<button>Save edits for moderating</button>';
+saveControlDiv.innerHTML = '<button>Save edits</button>';
+saveControlDiv.style.visibility = 'hidden';
 
 // 2. Define the Control Class
 class SaveControl extends Control {
@@ -1231,90 +1843,13 @@ style_control_save.innerHTML = `
 document.head.appendChild(style_control_save);
 
 
-// ROLLFORWARD CONTROL
-// CSS for positioning the control
-// 1. Create the Control Element
-const rollforwardControlDiv = document.createElement('div');
-rollforwardControlDiv.className = 'custom-rollforward-control';
-rollforwardControlDiv.innerHTML = '<button>Roll Forward</button>';
-
-// 2. Define the Control Class
-class RollForwardControl extends Control {
-  constructor(opt_options) {
-    const options = opt_options || {};
-    super({
-      element: rollforwardControlDiv,
-      target: options.target,
-    });
-
-    // Add event listener to the button
-    rollforwardControlDiv.querySelector('button').addEventListener('click',rollforward_onclick);
-
-
-  }
-}
-
-// CSS for positioning the control
-const style_control_rollforward = document.createElement('style');
-style_control_rollforward.innerHTML = `
-  .custom-rollforward-control {
-    position: absolute;
-    top: 60px;
-    right: 10px;
-    background-color: white;
-    padding: 5px;
-    border: 1px solid black;
-    z-index: 1000; /* Ensure it's on top of the map */
-    visibility:'hidden'; /* Hidden until turned on */
-  }
-`;
-document.head.appendChild(style_control_rollforward);
-
-// ROLLBACK CONTROL
-// CSS for positioning the control
-// 1. Create the Control Element
-const rollbackControlDiv = document.createElement('div');
-rollbackControlDiv.className = 'custom-rollback-control';
-rollbackControlDiv.innerHTML = '<button>Roll Back</button>';
-
-// 2. Define the Control Class
-class RollBackControl extends Control {
-  constructor(opt_options) {
-    const options = opt_options || {};
-    super({
-      element: rollbackControlDiv,
-      target: options.target,
-    });
-
-    // Add event listener to the button
-    rollbackControlDiv.querySelector('button').addEventListener('click',rollback_onclick);
-  }
-}
-
-// CSS for positioning the control
-const style_control_rollback = document.createElement('style');
-style_control_rollback.innerHTML = `
-  .custom-rollback-control {
-    position: absolute;
-    top: 110px;
-    right: 10px;
-    background-color: white;
-    padding: 5px;
-    border: 1px solid black;
-    z-index: 1000; /* Ensure it's on top of the map */
-    visibility:'hidden'; /* Hidden until turned on */
-  }
-`;
-document.head.appendChild(style_control_rollback);
-
-
     const map = new Map({
     //NEED FUNCTIONALITY AROUND TURNING OFF AND ON MODIFICATION
 
     //INTERACTIONS ARE CURRENTLY WRITTEN FOR EACH VECTOR LAYER
     
     interactions: defaultInteractions().extend([selectInteraction, modifyInteraction]),
-    controls: defaultControls({attribution: false}).extend([new SaveControl]).extend([new RollForwardControl]).extend([new RollBackControl]),
+    controls: defaultControls({attribution: false}).extend([new SaveControl]),
     layers: [/*googleLayer,*/topo50_layer,pg_doc, pg_doc_huts, pg_public],
     //layers: [pg_local_wdc_parcels_test],
     target: 'map',
@@ -1623,19 +2158,9 @@ document.head.appendChild(style_control_rollback);
                             label_content=key;
                     }
                     
-                    const label = document.createElement(key);
+                    const label = document.createElement('label');
                     label.textContent = label_content;
-                    // Set font weight to normal (not bold)
-                    label.style.fontWeight = 'normal';
-
-                    // Set font size to smaller (10px)
-                    label.style.fontSize = '10px';
-                    
-                    // Make it gray and uppercase
-                    label.style.color = '#666';
-                    label.style.textTransform = 'uppercase';
-                    label.style.letterSpacing = '0.5px';
-                    label.style.marginTop = '2px';
+                    // All styling handled by CSS classes - no inline styles
 
                     //const meta=document.createElement('span');
                     //meta.className='edit-meta';
@@ -1728,95 +2253,95 @@ document.head.appendChild(style_control_rollback);
                             input.setAttribute('data-importance', importanceValue.toString());
                         }
                         
-                        // Transform into visual bar (for all user roles, but with different interaction)
-                        if (userRole === 'public') {
-                            console.log('*** TRANSFORMING IMPORTANCE TO BAR ***');
+                        // Transform into visual bar (same for all user roles)
+                        console.log('*** TRANSFORMING IMPORTANCE TO BAR ***');
+                        
+                        // Transform input into visual bar - override flex styling
+                        input.style.position = 'relative';
+                        input.style.flex = 'none';
+                        input.style.width = '120px';
+                        input.style.height = '32px';
+                        input.style.padding = '0';
+                        input.style.border = '2px solid #B85450';
+                        input.style.borderRadius = '16px';
+                        input.style.overflow = 'hidden';
+                        input.style.fontSize = '0';
+                        input.style.boxShadow = '2px 2px 6px rgba(0,0,0,0.15)';
+                        input.style.marginBottom = '8px';
+                        
+                        if (isValidImportance) {
+                            // Valid importance: show filled bar
+                            input.style.background = '#FDE8E7';
                             
-                            // Note: Label styling is handled later in the main layout code
+                            // Calculate bar width based on importance (1=100%, 5=20%)
+                            const barWidth = 120 - (importanceValue - 1) * 20;
+                            const barPercent = (barWidth / 120) * 100;
                             
-                            // Transform input into visual bar - override flex styling
-                            input.style.position = 'relative';
-                            input.style.flex = 'none';
-                            input.style.width = '120px';
-                            input.style.height = '32px';
-                            input.style.padding = '0';
-                            input.style.border = '2px solid #B85450';
-                            input.style.borderRadius = '16px';
-                            input.style.overflow = 'hidden';
-                            input.style.fontSize = '0';
-                            input.style.boxShadow = '2px 2px 6px rgba(0,0,0,0.15)';
-                            input.style.marginBottom = '8px';
+                            console.log('Bar width:', barPercent + '%', 'for importance:', importanceValue);
                             
-                            if (isValidImportance) {
-                                // Valid importance: show filled bar
-                                input.style.background = '#FDE8E7';
-                                
-                                // Calculate bar width based on importance (1=100%, 5=20%)
-                                const barWidth = 120 - (importanceValue - 1) * 20;
-                                const barPercent = (barWidth / 120) * 100;
-                                
-                                console.log('Bar width:', barPercent + '%', 'for importance:', importanceValue);
-                                
-                                // Create bar fill
-                                const barFill = document.createElement('div');
-                                barFill.style.position = 'absolute';
-                                barFill.style.top = '0';
-                                barFill.style.left = '0';
-                                barFill.style.height = '100%';
-                                barFill.style.width = barPercent + '%';
-                                barFill.style.background = 'linear-gradient(90deg, #B85450 0%, #FFD700 100%)';
-                                barFill.style.transition = 'width 0.3s ease';
-                                barFill.style.pointerEvents = 'none';
-                                
-                                // Create text overlay
-                                const barText = document.createElement('div');
-                                barText.textContent = importanceValue + ' / 5';
-                                barText.style.position = 'absolute';
-                                barText.style.top = '50%';
-                                barText.style.left = '50%';
-                                barText.style.transform = 'translate(-50%, -50%)';
-                                barText.style.color = 'white';
-                                barText.style.fontSize = '11px';
-                                barText.style.fontWeight = 'bold';
-                                barText.style.textShadow = '1px 1px 2px rgba(0,0,0,0.5)';
-                                barText.style.zIndex = '1';
-                                barText.style.fontFamily = 'Courier New, monospace';
-                                barText.style.letterSpacing = '1px';
-                                barText.style.pointerEvents = 'none';
-                                
-                                // Clear input and add bar elements
-                                input.innerHTML = '';
-                                input.appendChild(barFill);
-                                input.appendChild(barText);
-                            } else {
-                                // Invalid/null importance: show "Unassigned" badge
-                                input.style.background = '#E0E0E0';
-                                input.style.border = '2px dashed #999';
-                                
-                                const unassignedText = document.createElement('div');
-                                unassignedText.textContent = 'UNASSIGNED';
-                                unassignedText.style.position = 'absolute';
-                                unassignedText.style.top = '50%';
-                                unassignedText.style.left = '50%';
-                                unassignedText.style.transform = 'translate(-50%, -50%)';
-                                unassignedText.style.color = '#666';
-                                unassignedText.style.fontSize = '9px';
-                                unassignedText.style.fontWeight = 'bold';
-                                unassignedText.style.fontFamily = 'Courier New, monospace';
-                                unassignedText.style.letterSpacing = '1px';
-                                unassignedText.style.pointerEvents = 'none';
-                                
+                            // Create bar fill
+                            const barFill = document.createElement('div');
+                            barFill.style.position = 'absolute';
+                            barFill.style.top = '0';
+                            barFill.style.left = '0';
+                            barFill.style.height = '100%';
+                            barFill.style.width = barPercent + '%';
+                            barFill.style.background = 'linear-gradient(90deg, #B85450 0%, #FFD700 100%)';
+                            barFill.style.transition = 'width 0.3s ease';
+                            barFill.style.pointerEvents = 'none';
+                            
+                            // Create text overlay
+                            const barText = document.createElement('div');
+                            barText.textContent = importanceValue + ' / 5';
+                            barText.style.position = 'absolute';
+                            barText.style.top = '50%';
+                            barText.style.left = '50%';
+                            barText.style.transform = 'translate(-50%, -50%)';
+                            barText.style.color = 'white';
+                            barText.style.fontSize = '11px';
+                            barText.style.fontWeight = 'bold';
+                            barText.style.textShadow = '1px 1px 2px rgba(0,0,0,0.5)';
+                            barText.style.zIndex = '1';
+                            barText.style.fontFamily = 'Courier New, monospace';
+                            barText.style.letterSpacing = '1px';
+                            barText.style.pointerEvents = 'none';
+                            
+                            // Clear input and add bar elements
+                            input.innerHTML = '';
+                            input.appendChild(barFill);
+                            input.appendChild(barText);
+                        } else {
+                            // Invalid/null importance: show "Unassigned" badge
+                            input.style.background = '#E0E0E0';
+                            input.style.border = '2px dashed #999';
+                            
+                            const unassignedText = document.createElement('div');
+                            unassignedText.textContent = 'UNASSIGNED';
+                            unassignedText.style.position = 'absolute';
+                            unassignedText.style.top = '50%';
+                            unassignedText.style.left = '50%';
+                            unassignedText.style.transform = 'translate(-50%, -50%)';
+                            unassignedText.style.color = '#666';
+                            unassignedText.style.fontSize = '9px';
+                            unassignedText.style.fontWeight = 'bold';
+                            unassignedText.style.fontFamily = 'Courier New, monospace';
+                            unassignedText.style.letterSpacing = '1px';
+                            unassignedText.style.pointerEvents = 'none';
+                            
                             input.innerHTML = '';
                             input.appendChild(unassignedText);
                         }
                         
-                        // Make importance bar read-only for public users
-                        input.contentEditable = 'false';
-                        input.style.cursor = 'default';
-                        input.style.pointerEvents = 'none';
+                        // Editability controlled by CSS classes, not inline styles
+                        // Public users: read-only via CSS pointer-events
+                        // User/Moderator: editable via CSS pointer-events
+                        if (userRole === 'public' || isDocLayer) {
+                            input.contentEditable = 'false';
+                            input.style.cursor = 'default';
+                            input.style.pointerEvents = 'none';
+                        }
                         
-                        console.log('Bar transformation complete');
-                        } // END of if (userRole === 'public')
+                        console.log('Bar transformation complete for all roles');
                     } // END of if (key === 'importance' && properties['layer_name'] === 'permolat_tracks')
                     
                     //input.style.color='red';
@@ -2020,50 +2545,37 @@ document.head.appendChild(style_control_rollback);
                     if (isImportanceBar) {
                         // Create horizontal wrapper to hold importance, lastcut, nextcut
                         window.dateRowContainer = window.dateRowContainer || document.createElement('div');
-                        window.dateRowContainer.style.cssText = 'display: flex !important; flex-direction: row !important; gap: 12px !important; margin-bottom: 8px !important; align-items: flex-start !important; pointer-events: auto !important;';
+                        window.dateRowContainer.style.display = 'flex';
+                        window.dateRowContainer.style.flexDirection = 'row';
+                        window.dateRowContainer.style.gap = '12px';
+                        window.dateRowContainer.style.marginBottom = '8px';
+                        window.dateRowContainer.style.alignItems = 'flex-start';
                     }
                     
-                    flexContainer.style.cssText = `display: flex !important; flex-direction: ${flexDirection} !important; align-items: flex-start !important; gap: ${useColumnLayout ? '4px' : '12px'} !important; margin-bottom: ${isDateField ? '0' : '8px'} !important; pointer-events: auto !important;`;
+                    flexContainer.style.display = 'flex';
+                    flexContainer.style.flexDirection = flexDirection;
+                    flexContainer.style.alignItems = 'flex-start';
+                    if (useColumnLayout) {
+                        flexContainer.style.gap = '4px';
+                    } else {
+                        flexContainer.style.gap = '12px';
+                    }
+                    if (!isDateField) {
+                        flexContainer.style.marginBottom = '8px';
+                    }
                     
                     console.log('Creating flex container for field:', key);
                     
-                    // Style label for horizontal layout
-                    label.style.cssText = 'margin: 0 !important; flex-shrink: 0 !important; font-size: 16px !important; font-weight: normal !important; text-transform: uppercase !important; color: #666 !important; letter-spacing: 0.5px !important; padding-top: 5px !important; width: 100px !important;';
+                    // Labels styled by CSS classes - only set content
                     label.textContent = label_content + ':';
                     
-                    // Add ID to trackname label with smaller styling
+                    // Add ID to trackname label
                     if (key === 'trackname' && properties['id']) {
                         label.innerHTML = label_content + ':';
                         const idSpan = document.createElement('span');
                         idSpan.textContent = ' (ID: ' + properties['id'] + ')';
-                        idSpan.style.cssText = 'font-size: 12px; font-weight: normal; text-transform: uppercase; letter-spacing: 0.5px;';
+                        idSpan.className = 'track-id-label';
                         label.appendChild(idSpan);
-                    }
-                    
-                    // Override label styling for importance bar
-                    if (isImportanceBar) {
-                        label.style.setProperty('font-size', '12px', 'important');
-                        label.style.setProperty('margin-bottom', '0', 'important');
-                        label.style.setProperty('width', 'auto', 'important');
-                        label.style.setProperty('padding-top', '0', 'important');
-                        label.style.setProperty('padding-bottom', '4px', 'important');
-                        label.style.setProperty('display', 'block', 'important');
-                        console.log('Importance label styled:', label.textContent, label.style.cssText);
-                    }
-                    
-                    // Override label styling for date fields
-                    if (isDateField) {
-                        label.style.setProperty('font-size', '12px', 'important');
-                        label.style.setProperty('margin-bottom', '0', 'important');
-                        label.style.setProperty('width', 'auto', 'important');
-                        label.style.setProperty('padding-top', '0', 'important');
-                        label.style.setProperty('padding-bottom', '4px', 'important');
-                        label.style.setProperty('display', 'block', 'important');
-                    }
-                    
-                    // Override label styling for tracktype to match smaller fields
-                    if (key === 'tracktype') {
-                        label.style.setProperty('font-size', '12px', 'important');
                     }
                     
                     flexContainer.appendChild(label);
@@ -2115,22 +2627,38 @@ document.head.appendChild(style_control_rollback);
             }
             
             // Add unobtrusive View Track History link after all fields (outside for loop)
-            const historyLinkContainer = document.createElement('div');
-            historyLinkContainer.style.cssText = 'margin-top: 15px; padding-top: 10px; border-top: 1px solid #e0e0e0; text-align: center;';
-            
-            const historyLink = document.createElement('a');
-            historyLink.textContent = '📋 View Track History';
-            historyLink.href = '#';
-            historyLink.style.cssText = 'color: #666; font-size: 12px; text-decoration: none; cursor: pointer;';
-            historyLink.onmouseover = function() { this.style.color = '#4CAF50'; this.style.textDecoration = 'underline'; };
-            historyLink.onmouseout = function() { this.style.color = '#666'; this.style.textDecoration = 'none'; };
-            historyLink.onclick = function(e) {
-                e.preventDefault();
-                view_track_history_onclick(e);
-            };
-            
-            historyLinkContainer.appendChild(historyLink);
-            editorDiv.appendChild(historyLinkContainer);
+            // Only show for permolat_tracks, not for DOC layers
+            if (!isDocLayer && properties['layer_name'] === 'permolat_tracks') {
+                // Also fetch version count to show badge
+                const historyLinkContainer = document.createElement('div');
+                historyLinkContainer.style.cssText = 'margin-top: 15px; padding-top: 10px; border-top: 1px solid #e0e0e0; text-align: center;';
+                
+                const historyLink = document.createElement('a');
+                historyLink.textContent = '📋 View Track History';
+                historyLink.href = '#';
+                historyLink.id = 'track-history-link';
+                historyLink.style.cssText = 'color: #666; font-size: 12px; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;';
+                historyLink.onmouseover = function() { this.style.color = '#4CAF50'; this.style.textDecoration = 'underline'; };
+                historyLink.onmouseout = function() { this.style.color = '#666'; this.style.textDecoration = 'none'; };
+                historyLink.onclick = function(e) {
+                    e.preventDefault();
+                    view_track_history_onclick(e);
+                };
+                
+                // Add version count badge (will be updated async)
+                const versionBadge = document.createElement('span');
+                versionBadge.id = 'version-count-badge';
+                versionBadge.style.cssText = 'display: none; background: #FF9800; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: bold;';
+                historyLink.appendChild(versionBadge);
+                
+                historyLinkContainer.appendChild(historyLink);
+                editorDiv.appendChild(historyLinkContainer);
+                
+                // Async fetch version count for badge display
+                if (properties['id'] && window.session_info?.role) {
+                    fetchVersionCount(properties['id'], versionBadge);
+                }
+            }
             
             //Add a save button
             /*
@@ -2151,16 +2679,12 @@ document.head.appendChild(style_control_rollback);
             rollforward.textContent='Roll forward to next';
             */
 
-            //Set visibility of the rollforward button based on the key_flags defined above
-            if (key_flag_rollforward) {rollforwardControlDiv.style.visibility='visible';}
-            else {rollforwardControlDiv.style.visibility='hidden';}
-      
-            //Set visibility of the rollback button based on the key_flags defined above
-            if (key_flag_rollback) {rollbackControlDiv.style.visibility='visible';}
-            else {rollbackControlDiv.style.visibility='hidden';}
-      
-
-            
+            // Save button visibility: only for users and moderators, not for public
+            if (userRole === 'user' || userRole === 'moderator') {
+                saveControlDiv.style.visibility = 'visible';
+            } else {
+                saveControlDiv.style.visibility = 'hidden';
+            }
 
         }//end if test for no feature classes
    

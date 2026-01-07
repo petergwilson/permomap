@@ -683,7 +683,7 @@ app.delete('/api/admin/users/:userid', requireAuth, async (req, res) => {
 
 
 // Route to handle GeoJSON data
-// Main saving logic
+// Main saving logic - saves to permolat_track_versions
 app.post('/api/save', requireAuth, async(req, res) => {
     const client = await pool.connect();
     
@@ -696,55 +696,69 @@ app.post('/api/save', requireAuth, async(req, res) => {
             });
         }
 
+        const props = req.body.properties;
+        
+        // Validate parent_id (properties.id) is provided
+        if (!props.id) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Parent track ID (properties.id) is required' 
+            });
+        }
+
         await client.query('BEGIN');
 
-        // Get next ID
-        const result1 = await client.query(
-            'SELECT COALESCE(max(id), 0) + 1 as new_id FROM permolat_tracks'
+        // Get next version_id
+        const versionResult = await client.query(
+            'SELECT COALESCE(max(version_id), 0) + 1 as new_version_id FROM permolat_track_versions'
         );
-        const new_id = result1.rows[0].new_id;
+        const new_version_id = versionResult.rows[0].new_version_id;
 
-        // Insert new track with parameterized query
+        // Insert new version into permolat_track_versions
         const insertQuery = `
-            INSERT INTO permolat_tracks (
+            INSERT INTO permolat_track_versions (
                 geom, id, trackname, layer_name, importance, tracktype,
-                currentcon, custodian, next_id, prev_id, history, status
+                currentcon, custodian,
+                version_id, comments, added_by, 
+                added_timestamp, moderated_timestamp
             )
             SELECT 
                 ST_SetSRID(ST_GeomFromGeoJSON($1), 3857),
                 $2,
                 $3, $4, $5, $6, $7, $8,
-                NULL,
                 $9,
                 $10,
-                'pending'
-            RETURNING id`;
+                $11,
+                NOW(),
+                NOW()
+            RETURNING version_id, id`;
 
-        const props = req.body.properties;
         const result = await client.query(insertQuery, [
             JSON.stringify(req.body.geometry),
-            new_id,
+            props.id,  // Use the parent track id as the id
             props.trackname || null,
             props.layer_name || null,
             props.importance || null,
             props.tracktype || null,
             props.currentcon || null,
             props.custodian || null,
-            props.id ? parseInt(props.id) : null,
-            props.history || ''
+            new_version_id,  // version_id
+            props.comments || 'Track edit via web interface',  // comments
+            req.session.userid  // added_by (current user)
         ]);
 
         await client.query('COMMIT');
         
         res.status(201).json({ 
             success: true, 
-            id: new_id,
-            message: 'Track saved successfully, pending moderation'
+            version_id: new_version_id,
+            id: result.rows[0].id,
+            message: 'Track version saved successfully, pending moderation'
         });
         
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error saving track:', error);
+        console.error('Error saving track version:', error);
         res.status(500).json({ 
             success: false, 
             message: 'Database error' 
@@ -773,23 +787,14 @@ app.post('/api/rollback', requireAuth, async(req, res) => {
 
         // Set the status flag on current parcel to old
         await client.query(
-            'UPDATE permolat_tracks SET status = $1 WHERE id = $2',
+            'UPDATE permolat_tracks_prod SET status = $1 WHERE id = $2',
             ['old', props.id]
         );
 
         // Set the status flag on the previous parcel to live
         await client.query(
-            'UPDATE permolat_tracks SET status = $1 WHERE id = $2',
+            'UPDATE permolat_tracks_prod SET status = $1 WHERE id = $2',
             ['live', props.prev_id]
-        );
-
-        // Record history
-        const now = new Date();
-        const historyEntry = `\n${req.session.username || 'User'} rolled back to this version on ${now.toISOString()}`;
-        
-        await client.query(
-            'UPDATE permolat_tracks SET history = COALESCE(history, \'\') || $1 WHERE id = $2',
-            [historyEntry, props.prev_id]
         );
 
         await client.query('COMMIT');
@@ -830,23 +835,14 @@ app.post('/api/rollforward', requireAuth, async(req, res) => {
 
         // Set the flag on current parcel to old
         await client.query(
-            'UPDATE permolat_tracks SET status = $1 WHERE id = $2',
+            'UPDATE permolat_tracks_prod SET status = $1 WHERE id = $2',
             ['old', props.id]
         );
 
         // Set the flag on the next parcel in the chain to live
         await client.query(
-            'UPDATE permolat_tracks SET status = $1 WHERE id = $2',
+            'UPDATE permolat_tracks_prod SET status = $1 WHERE id = $2',
             ['live', props.next_id]
-        );
-
-        // Record history
-        const now = new Date();
-        const historyEntry = `\n${req.session.username || 'User'} rolled forward to this version on ${now.toISOString()}`;
-        
-        await client.query(
-            'UPDATE permolat_tracks SET history = COALESCE(history, \'\') || $1 WHERE id = $2',
-            [historyEntry, props.next_id]
         );
 
         await client.query('COMMIT');
@@ -865,6 +861,485 @@ app.post('/api/rollforward', requireAuth, async(req, res) => {
         });
     } finally {
         client.release();
+    }
+});
+
+// Get track version history - for displaying git-like diff of track changes
+app.get('/api/track-versions/:trackId', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    
+    try {
+        const trackId = parseInt(req.params.trackId);
+        
+        console.log('Fetching track versions for trackId:', trackId);
+        
+        if (isNaN(trackId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid track ID' 
+            });
+        }
+
+        // Get all versions for this track from permolat_track_versions
+        // Exclude geometry for now as per user request
+        const query = `
+            SELECT 
+                v.version_id,
+                v.id,
+                v.trackname,
+                v.importance,
+                v.tracktype,
+                v.currentcon,
+                v.custodian,
+                v.lastcut,
+                v.nextcut,
+                v.comments,
+                v.added_by,
+                v.added_timestamp,
+                v.reviewed_by,
+                v.reviewed_timestamp,
+                v.moderated_by,
+                v.moderated_timestamp,
+                u_added.username as added_by_username,
+                u_reviewed.username as reviewed_by_username,
+                u_moderated.username as moderated_by_username,
+                CASE 
+                    WHEN v.moderated_by IS NOT NULL THEN 'approved'
+                    ELSE 'pending'
+                END as status
+            FROM permolat_track_versions v
+            LEFT JOIN permomap_users u_added ON v.added_by = u_added.userid
+            LEFT JOIN permomap_users u_reviewed ON v.reviewed_by = u_reviewed.userid
+            LEFT JOIN permomap_users u_moderated ON v.moderated_by = u_moderated.userid
+            WHERE v.id = $1
+            ORDER BY v.version_id ASC`;
+
+        console.log('Executing query with id:', trackId);
+        const result = await client.query(query, [trackId]);
+        console.log('Query returned', result.rows.length, 'rows');
+
+        // It's OK if there are no versions yet - return empty array
+        if (result.rows.length === 0) {
+            return res.json({ 
+                success: true,
+                trackId: trackId,
+                totalVersions: 0,
+                versions: [],
+                trackedFields: ['trackname', 'importance', 'tracktype', 'currentcon', 'custodian', 'lastcut', 'nextcut']
+            });
+        }
+
+        // Compute diffs between consecutive versions
+        const versions = result.rows;
+        const trackedFields = ['trackname', 'importance', 'tracktype', 'currentcon', 'custodian', 'lastcut', 'nextcut'];
+        
+        const versionsWithDiffs = versions.map((version, index) => {
+            const diffs = {};
+            
+            if (index > 0) {
+                const prevVersion = versions[index - 1];
+                
+                trackedFields.forEach(field => {
+                    const oldVal = prevVersion[field];
+                    const newVal = version[field];
+                    
+                    // Normalize values for comparison
+                    const oldNorm = oldVal === null || oldVal === undefined ? '' : String(oldVal);
+                    const newNorm = newVal === null || newVal === undefined ? '' : String(newVal);
+                    
+                    if (oldNorm !== newNorm) {
+                        diffs[field] = {
+                            old: oldVal,
+                            new: newVal,
+                            changed: true
+                        };
+                    }
+                });
+            }
+            
+            return {
+                ...version,
+                diffs,
+                isFirstVersion: index === 0
+            };
+        });
+
+        res.json({ 
+            success: true, 
+            trackId: trackId,
+            totalVersions: versions.length,
+            versions: versionsWithDiffs,
+            trackedFields: trackedFields
+        });
+        
+    } catch (error) {
+        console.error('Track versions error:', error);
+        console.error('Error details:', error.message);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Database error: ' + error.message 
+        });
+    } finally {
+        client.release();
+    }
+});
+
+// Moderate endpoint - for moderators to approve track versions for public visibility
+app.post('/api/moderate', requireAuth, async(req, res) => {
+    const client = await pool.connect();
+    
+    try {
+        // Check if user has moderator role
+        if (req.session.role !== 'moderator' && req.session.role !== 'sysadmin') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Moderator access required' 
+            });
+        }
+
+        const { version_id, action, comments } = req.body;
+        
+        // Validate input
+        if (!version_id || !action) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Missing required fields: version_id and action' 
+            });
+        }
+
+        if (!['approve', 'reject'].includes(action)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Action must be either "approve" or "reject"' 
+            });
+        }
+
+        await client.query('BEGIN');
+
+        if (action === 'approve') {
+            // Update the track version with moderation info
+            await client.query(
+                `UPDATE permolat_track_versions 
+                 SET moderated_by = $1, 
+                     moderated_timestamp = NOW(),
+                     status = 'approved',
+                     comments = COALESCE(comments, '') || $2
+                 WHERE version_id = $3`,
+                [
+                    req.session.userid,
+                    comments ? `\n[Moderator: ${comments}]` : '\n[Approved by moderator]',
+                    version_id
+                ]
+            );
+
+            // TODO: Additional logic to update the parent track or make version live
+            // This depends on your specific workflow
+            
+        } else if (action === 'reject') {
+            // Update the track version as rejected
+            await client.query(
+                `UPDATE permolat_track_versions 
+                 SET moderated_by = $1, 
+                     moderated_timestamp = NOW(),
+                     status = 'rejected',
+                     comments = COALESCE(comments, '') || $2
+                 WHERE version_id = $3`,
+                [
+                    req.session.userid,
+                    comments ? `\n[Moderator: ${comments}]` : '\n[Rejected by moderator]',
+                    version_id
+                ]
+            );
+        }
+
+        await client.query('COMMIT');
+        
+        res.status(200).json({ 
+            success: true, 
+            message: `Track version ${action}d successfully`
+        });
+        
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Moderation error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Database error' 
+        });
+    } finally {
+        client.release();
+    }
+});
+
+// Peer review endpoint - for any user to review a track version
+app.post('/api/review', requireAuth, async(req, res) => {
+    const client = await pool.connect();
+    
+    try {
+        const { version_id, comments } = req.body;
+        
+        // Validate input
+        if (!version_id) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Missing required field: version_id' 
+            });
+        }
+
+        await client.query('BEGIN');
+
+        // Check if user has already reviewed this version
+        const existingReview = await client.query(
+            'SELECT reviewed_by FROM permolat_track_versions WHERE version_id = $1',
+            [version_id]
+        );
+
+        if (existingReview.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Track version not found' 
+            });
+        }
+
+        // Check if this version is their own edit
+        const versionInfo = await client.query(
+            'SELECT added_by FROM permolat_track_versions WHERE version_id = $1',
+            [version_id]
+        );
+
+        if (versionInfo.rows[0].added_by === req.session.userid) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Cannot review your own track edits' 
+            });
+        }
+
+        // Update with peer review info (single peer-review model)
+        await client.query(
+            `UPDATE permolat_track_versions 
+             SET reviewed_by = $1, 
+                 reviewed_timestamp = NOW(),
+                 comments = COALESCE(comments, '') || $2
+             WHERE version_id = $3`,
+            [
+                req.session.userid,
+                comments ? `\n[Peer review by ${req.session.username}: ${comments}]` : `\n[Peer reviewed by ${req.session.username}]`,
+                version_id
+            ]
+        );
+
+        await client.query('COMMIT');
+        
+        res.status(200).json({ 
+            success: true, 
+            message: 'Track version reviewed successfully'
+        });
+        
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Review error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Database error' 
+        });
+    } finally {
+        client.release();
+    }
+});
+
+// Add comment to a track version
+app.post('/api/version-comment', requireAuth, async(req, res) => {
+    const client = await pool.connect();
+    
+    try {
+        const { version_id, comment_text, parent_comment_id } = req.body;
+        
+        if (!version_id || !comment_text || comment_text.trim() === '') {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Version ID and comment text are required' 
+            });
+        }
+
+        await client.query('BEGIN');
+
+        // Check if user is a moderator
+        const userRole = req.session.role || 'public';
+        const isModerator = userRole === 'moderator' || userRole === 'sysadmin';
+
+        // Insert comment
+        const insertResult = await client.query(
+            `INSERT INTO permolat_version_comments 
+                (version_id, user_id, comment_text, parent_comment_id, is_moderator_comment)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING comment_id, created_at`,
+            [version_id, req.session.userid, comment_text, parent_comment_id || null, isModerator]
+        );
+
+        await client.query('COMMIT');
+        
+        res.status(201).json({ 
+            success: true, 
+            message: 'Comment added successfully',
+            comment: {
+                comment_id: insertResult.rows[0].comment_id,
+                created_at: insertResult.rows[0].created_at,
+                username: req.session.username
+            }
+        });
+        
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Comment error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Database error' 
+        });
+    } finally {
+        client.release();
+    }
+});
+
+// Get comments for a track version
+app.get('/api/version-comments/:versionId', async(req, res) => {
+    try {
+        const { versionId } = req.params;
+        
+        const query = `
+            SELECT 
+                c.comment_id,
+                c.version_id,
+                c.user_id,
+                c.comment_text,
+                c.created_at,
+                c.updated_at,
+                c.parent_comment_id,
+                c.is_moderator_comment,
+                c.is_internal_note,
+                u.username,
+                u.email
+            FROM permolat_version_comments c
+            LEFT JOIN permomap_users u ON c.user_id = u.userid
+            WHERE c.version_id = $1
+            ORDER BY c.created_at ASC
+        `;
+        
+        const result = await pool.query(query, [versionId]);
+        
+        res.status(200).json({ 
+            success: true, 
+            comments: result.rows
+        });
+        
+    } catch (error) {
+        console.error('Get comments error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Database error' 
+        });
+    }
+});
+
+// Contact version author - send notification/email
+app.post('/api/contact-author', requireAuth, async(req, res) => {
+    try {
+        const { version_id, message } = req.body;
+        
+        if (!version_id || !message || message.trim() === '') {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Version ID and message are required' 
+            });
+        }
+
+        // Get author information
+        const authorQuery = `
+            SELECT 
+                v.added_by,
+                u.username,
+                u.email
+            FROM permolat_track_versions v
+            LEFT JOIN permomap_users u ON v.added_by = u.userid
+            WHERE v.version_id = $1
+        `;
+        
+        const authorResult = await pool.query(authorQuery, [version_id]);
+        
+        if (authorResult.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Version not found' 
+            });
+        }
+        
+        const author = authorResult.rows[0];
+        
+        // For now, just create a comment as a way to contact
+        // In a full implementation, you'd send an email here
+        const commentResult = await pool.query(
+            `INSERT INTO permolat_version_comments 
+                (version_id, user_id, comment_text, parent_comment_id, is_moderator_comment)
+             VALUES ($1, $2, $3, NULL, false)
+             RETURNING comment_id`,
+            [version_id, req.session.userid, `@${author.username} ${message}`]
+        );
+        
+        // TODO: Send actual email notification to author.email
+        // For now, we're using the comment system as a basic notification
+        
+        res.status(200).json({ 
+            success: true, 
+            message: 'Message sent as comment. Author will be notified.',
+            author_username: author.username
+        });
+        
+    } catch (error) {
+        console.error('Contact author error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Database error' 
+        });
+    }
+});
+
+// Get geometry for a specific version (for map overlay)
+app.get('/api/version-geometry/:versionId', async(req, res) => {
+    try {
+        const { versionId } = req.params;
+        
+        const query = `
+            SELECT 
+                version_id,
+                ST_AsGeoJSON(geom) as geometry
+            FROM permolat_track_versions
+            WHERE version_id = $1
+        `;
+        
+        const result = await pool.query(query, [versionId]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Version not found' 
+            });
+        }
+        
+        const row = result.rows[0];
+        
+        res.status(200).json({ 
+            success: true, 
+            geometry: row.geometry ? JSON.parse(row.geometry) : null
+        });
+        
+    } catch (error) {
+        console.error('Get version geometry error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Database error' 
+        });
     }
 });
 
@@ -895,6 +1370,15 @@ app.get('/api/total_length', async(req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
+  console.log('Registered routes:');
+  console.log('  GET  /api/track-versions/:trackId');
+  console.log('  POST /api/moderate');
+  console.log('  POST /api/review');
+  console.log('  POST /api/version-comment');
+  console.log('  GET  /api/version-comments/:versionId');
+  console.log('  POST /api/contact-author');
+  console.log('  GET  /api/version-geometry/:versionId');
+  console.log('  GET  /api/total_length');
 });
 
 
