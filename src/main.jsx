@@ -1277,15 +1277,10 @@ loginSubmitButton.addEventListener("click", async(event) =>{
                 `;
             }
             
-            // Action buttons - compact for panel (removed, will be in comments panel)
-            const userRole = window.session_info?.role;
-            const userId = window.session_info?.userid;
+            // Action buttons section
             const canReview = !version.reviewed_by && version.added_by !== userId && userRole && userRole !== 'public';
             const canModerate = version.status === 'pending' && (userRole === 'moderator' || userRole === 'sysadmin');
-            const isLoggedIn = userId && userRole !== 'public';
-            const canContactAuthor = isLoggedIn && version.added_by !== userId && version.added_by;
             
-            // Action buttons section
             if (canReview || canModerate || isLoggedIn) {
                 html += `
                     <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e0e0e0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
