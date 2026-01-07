@@ -976,17 +976,6 @@ document.head.appendChild(style_control_rollback);
 
         const selectedFeature = event.selected[0];
 
-        // Retrieve session info for Ice
-        let sessionInfo = null;
-        try {
-            const resp = await fetch('/api/get_session', { method: 'GET' });
-            if (resp.ok) {
-                sessionInfo = await resp.json();
-            }
-        } catch (err) {
-            console.error('Failed to fetch session info', err);
-        }
-
         //const geojsonFormat=new GeoJSON();
         //const geojsonObject = geojsonFormat.writeFeatureObject(selectedFeature);
 
@@ -1103,20 +1092,8 @@ document.head.appendChild(style_control_rollback);
                     //input.type = 'text';
                     input.textContent = properties[key];
 
-                    // Initialize ICE editor for this input
-                    if (sessionInfo) {
-                        new Ice(input, {
-                            username: sessionInfo.username,
-                            email: sessionInfo.email,
-                            role: sessionInfo.role
-                        });
-                    } else {
-                        new Ice(input, {});
-                    }
-
-                    
-                    // Determine session role from fetched session info
-                    const session_role = sessionInfo ? sessionInfo.role : '';
+                    // Determine session role from window session info
+                    const session_role = window.session_info ? window.session_info.role : '';
 
 
                     //Key flag

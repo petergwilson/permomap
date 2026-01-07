@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Permolat Mapping System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <script type="module" src="src/main.jsx"></script>
+    <style>
+        /* Responsive split: stack vertically on narrow screens */
+        @media (max-width: 768px) {
+            .split-row {
+                display: block !important;
+            }
+            .split-col {
+                width: 100% !important;
+                margin-bottom: 0px;
+            }
+        }
+        .split-row {
+            display: flex;
+            min-height: 300px;
+            gap: 16px;
+        }
+        .split-col {
+            display: flex;
+            flex-direction: column;
+            justify-content: stretch;
+        }
+        .map{
+          height: 600px;
+          width: 100%;
+        }
+
+        .modal {
+          display: none; /* Hidden by default */
+          position: fixed; /* Stay in place */
+          z-index: 1; /* Sit on top */
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          overflow: auto; /* Enable scroll if needed */
+          background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto; /* 15% from the top and centered */
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 500px;
+    }
+
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    #contextMenu {
+      position: fixed;
+      display: none;
+      background: #fff;
+      border: 1px solid #aaa;
+      border-radius: 6px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+      z-index: 1000;
+      min-width: 180px;
+    }
+    #contextMenu .author {
+      padding: 9px 16px 7px 16px;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+      color: #333;
+    }
+    #contextMenu .restore {
+      cursor: pointer;
+      padding: 8px 16px;
+      transition: background 0.13s;
+      font-size: 15px;
+    }
+    #contextMenu .restore:hover {
+      background: #f3f5ff;
+    }
+    .strike-container {
+  position: relative;
+  display: inline-block;
+}
+.author-bubble {
+  position: absolute;
+  left: 0;
+  top: -1.8em;
+  background: #444;
+  color: #fff;
+  border-radius: 16px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  user-select: none;
+  pointer-events: none;
+  z-index: 10;
+}
+ /* User color underline and strikethrough (example: data attributes for style) */
+  .ql-user-ins {
+    text-decoration: underline;
+    text-underline-position: under;
+    font-weight: bold;
+  }
+  .ql-user-del {
+    text-decoration: line-through;
+    font-weight: bold;
+    opacity: 0.7;
+  }
+
+/* Hover-only tooltip for [data-username] elements */
+[data-username]{
+  position: relative;
+  --tt-bg: #111827;
+  --tt-fg: #fff;
+  --tt-radius: .5rem;
+  --tt-gap: 8px;
+  --tt-pad-y: .35rem;
+  --tt-pad-x: .5rem;
+  --tt-shadow: 0 6px 20px rgba(0,0,0,.22);
+  --tt-z: 20;
+}
+
+[data-username]::after{
+  content: attr(data-username);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + var(--tt-gap));
+  transform: translateX(-50%) translateY(4px) scale(.98);
+  background: var(--tt-bg);
+  color: var(--tt-fg);
+  font: 600 .75rem/1.25 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+  padding: var(--tt-pad-y) var(--tt-pad-x);
+  border-radius: var(--tt-radius);
+  box-shadow: var(--tt-shadow);
+  white-space: pre-wrap;          /* allows line break */
+  max-width: 28ch;
+  z-index: var(--tt-z);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease, visibility 0s linear .15s;
+}
+
+/* Show tooltip */
+[data-username]:hover::after,
+[data-username]:focus-visible::after{
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0) scale(1);
+  transition: opacity .15s ease, transform .15s ease, visibility 0s;
+}
+
+/* If JS set data-ts, use that on the second line */
+[data-username][data-ts]:hover::after,
+[data-username][data-ts]:focus-visible::after{
+  content: attr(data-username) "\A" attr(data-ts);
+}
+
+/* Fallback: if no data-ts, but a raw timestamp exists, show it raw */
+[data-username][timestamp]:hover:not([data-ts])::after,
+[data-username][timestamp]:focus-visible:not([data-ts])::after{
+  content: attr(data-username) "\A" attr(timestamp);
+}
+
+@media (prefers-reduced-motion: reduce){
+  [data-username]::after{ transition: none; }
+}
+    </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const nodes = document.querySelectorAll('[data-username][timestamp]');
+  // Localized date/time (viewer’s locale & timezone)
+  const fmt = new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+
+  nodes.forEach(el => {
+    const raw = (el.getAttribute('timestamp') || '').trim();
+    let d;
+
+    if (/^\d+$/.test(raw)) {
+      // Numeric epoch: detect seconds vs milliseconds
+      let n = Number(raw);
+      if (n < 1e11) n *= 1000;   // treat 10-digit values as seconds
+      d = new Date(n);
+    } else {
+      // Try to parse ISO/date strings as a loose fallback
+      const t = Date.parse(raw);
+      if (!Number.isNaN(t)) d = new Date(t);
+    }
+
+    if (d && !Number.isNaN(d.getTime())) {
+      const pretty = fmt.format(d);
+      el.setAttribute('data-ts', pretty);
+      // Optional: native tooltip on long hover
+      if (!el.hasAttribute('title')) {
+        el.setAttribute('title', `${el.getAttribute('data-username')} • ${pretty}`);
+      }
+    }
+  });
+});
+</script>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <div class="w3_container w3-bar w3-red w3-mobile w3-top" style="height:90px">
+      <div class="w3-bar-item w3-mobile w3-left"><img src="images/permolat.jpg" style="padding-top:5px"/></div> 
+      <div class="w3-bar-item w3-mobile w3-left"><h3 style="color:black; font-weight:bold">Permolat community tracks</h3></div> 
+      <div class="w3-bar-item w3-button w3-mobile w3-middle"><h6 id="total_length" style="color:rgb(255, 255, 255); font-weight:normal"></h6></div>
+      <div class="w3-bar-item w3-mobile w3-right w3-display-bottom w3-display-bottom"><p id="username_field"><p></div>
+      <div class="w3-bar-item w3-button w3-mobile w3-right" id="login">Login</div>
+      <div class="w3-bar-item w3-button w3-mobile w3-right">Get involved</div>
+      <div class="w3-bar-item w3-button w3-mobile w3-right">About</div>
+
+
+        <!-- Login modal-->
+        <div id="loginModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Login</h2>
+                <form id="loginForm">
+                    <p> This is a test login</p>
+                    <input type="text" placeholder="Username" required id="login_name">
+                    <input type="text" placeholder="Email" required id="login_email">
+                    <input type="password" placeholder="Password" id="login_password">
+                    <button type="button" id="login_submit_button">Login</button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Space for navbar -->
+    <div style="margin-top:100px"></div>
+
+    <!-- Responsive Row (2/3 left, 1/3 right on desktop, stacked on mobile) -->
+    <div class="w3-container" id="root">
+        <div class="split-row">
+            <!-- Left Pane (2/3 width on desktop) -->
+            <div class="split-col" style="width:66.66%; height:900px">       
+                  <!-- Div to hold the map object, map is loaded dynamically at load time through the Javascript library-->
+                  <div id="map" class="map"></div>
+                  <!-- Button to reopen panel-->
+                  
+            </div>
+
+            <!-- Right Pane (1/3 width on desktop) -->
+            <div class="split-col" style="width:33.33%;">
+                <div class="w3-pale-green w3-round-large" id="dynamicContent" style="height:600px;">
+                  <pre id="usertype"></pre>
+                  <pre id="title"></pre>  
+                  <div id="info" style="height:500px; overflow:auto" ></div>
+                  <div id="contextMenu">
+                    <div class="author"></div>
+                    <div class="restore">Restore text</div>
+                  </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom panel (full width) --> 
+    <div id="bottom-panel" class="w3-container w3-green w3-center" style="margin-top:15px;">
+
+    </div>
+    
+
+</body>
+</html>

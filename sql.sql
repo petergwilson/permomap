@@ -1,0 +1,1 @@
+CREATE SEQUENCE permolat_track_versions_id_seq;

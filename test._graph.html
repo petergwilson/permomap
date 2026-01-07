@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Linked List with Two Branches per Node</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --node-w: 90px; --node-h: 40px; --gap: 90px; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center; }
+    input[type=text], select { padding:8px; font-size:14px; }
+    button { padding:8px 12px; font-size:14px; border-radius:8px; border:1px solid #ccc; background:#f7f7f7; cursor:pointer; }
+    button:hover { background:#eee; }
+    #viz { width:100%; height:320px; border:1px dashed #ddd; background:#fafafa; }
+    .label { font-size:12px; fill:#333; user-select:none; }
+    .chip { font-size:11px; padding:2px 6px; border-radius:999px; background:#eee; margin-left:6px; }
+    .legend { font-size:12px; color:#444; margin:6px 0 12px; }
+  </style>
+</head>
+<body>
+  <h1>Linked List with Branches</h1>
+
+  <div class="controls">
+    <input id="value" type="text" placeholder="value (e.g., 42)" />
+    <button id="append">append</button>
+    <button id="demo">append demo (A–D)</button>
+    <span class="chip">No delete / no prepend</span>
+  </div>
+
+  <div class="controls">
+    <label>
+      Edit node index:
+      <select id="nodeIndex"></select>
+    </label>
+    <label>
+      Branch A →
+      <select id="branchA"></select>
+    </label>
+    <label>
+      Branch B →
+      <select id="branchB"></select>
+    </label>
+    <button id="applyLinks">apply links</button>
+  </div>
+
+  <div class="legend">Main list uses solid arrows. Branch A is dotted; Branch B is dashed. Back-references are drawn with curves.</div>
+
+  <svg id="viz" viewBox="0 0 1100 320" preserveAspectRatio="xMinYMin meet">
+    <defs>
+      <marker id="arrowSolid" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z"></path>
+      </marker>
+      <marker id="arrowDashed" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z"></path>
+      </marker>
+      <marker id="arrowDotted" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z"></path>
+      </marker>
+    </defs>
+  </svg>
+
+  <script>
+    // ----- Data structures -----
+    class Node {
+      constructor(value) {
+        this.value = value;
+        this.next = null;   // linear chain (append-only)
+        this.a = null;      // branch A target (Node or null)
+        this.b = null;      // branch B target (Node or null)
+      }
+    }
+
+    class LinkedListWithBranches {
+      constructor() { this.head = null; this.tail = null; this.length = 0; }
+      append(value) {
+        const n = new Node(value);
+        if (!this.head) this.head = this.tail = n;
+        else { this.tail.next = n; this.tail = n; }
+        this.length++;
+        return n;
+      }
+      toArray() {
+        const arr = [];
+        let cur = this.head;
+        while (cur) { arr.push(cur); cur = cur.next; }
+        return arr;
+      }
+      setBranch(i, which, targetIndex) {
+        const arr = this.toArray();
+        if (i < 0 || i >= arr.length) return;
+        const src = arr[i];
+        const tgt = (targetIndex === null) ? null : arr[targetIndex] ?? null;
+        if (which === 'A') src.a = tgt;
+        if (which === 'B') src.b = tgt;
+      }
+    }
+
+    // ----- Renderer -----
+    const svg = document.getElementById('viz');
+    const NS = 'http://www.w3.org/2000/svg';
+    const nodeW = 90, nodeH = 40, gap = 90, leftPad = 30, baseY = 120;
+
+    function render(list) {
+      // wipe everything except <defs>
+      while (svg.lastChild && svg.lastChild.tagName !== 'defs') svg.removeChild(svg.lastChild);
+
+      const nodes = list.toArray();
+      const neededWidth = Math.max(1100, leftPad + nodes.length * (nodeW + gap) + 140);
+      svg.setAttribute('viewBox', `0 0 ${neededWidth} 320`);
+
+      // labels head/tail
+      if (list.head) svg.appendChild(txt(leftPad, 24, 'head →'));
+      if (list.tail) svg.appendChild(txt(leftPad + (nodes.length - 1) * (nodeW + gap), 24, 'tail'));
+
+      // positions
+      const pos = nodes.map((_, i) => ({
+        x: leftPad + i * (nodeW + gap),
+        y: baseY
+      }));
+
+      // main chain arrows (solid)
+      for (let i = 0; i < nodes.length - 1; i++) {
+        drawArrow(pos[i].x + nodeW, pos[i].y + nodeH/2, pos[i+1].x - 14, pos[i+1].y + nodeH/2, 'solid');
+      }
+
+      // nodes
+      nodes.forEach((n, i) => {
+        const {x, y} = pos[i];
+        rect(x, y, nodeW, nodeH, '#fff', '#333', 10);
+        svg.appendChild(txt(x + nodeW/2, y + nodeH/2 + 4, String(n.value), {anchor:'middle'}));
+        svg.appendChild(txt(x + nodeW/2, y + nodeH + 18, `#${i}`, {anchor:'middle'}));
+      });
+
+      // branches: A (dotted) and B (dashed)
+      nodes.forEach((n, i) => {
+        if (n.a) drawBranch(i, nodes.indexOf(n.a), 'A');
+        if (n.b) drawBranch(i, nodes.indexOf(n.b), 'B');
+      });
+
+      function drawBranch(i, j, which) {
+        if (j < 0) return;
+        const sx = pos[i].x + nodeW/2, sy = pos[i].y;         // start top center
+        const tx = pos[j].x + nodeW/2, ty = pos[j].y + nodeH; // target bottom center
+        const forward = j >= i;
+        const midY = forward ? sy - 50 - Math.min(60, (j - i) * 8) : sy - 90 - Math.min(120, (i - j) * 14);
+        const midX = (sx + tx) / 2;
+
+        const d = `M ${sx} ${sy} Q ${midX} ${midY} ${tx} ${ty}`;
+        const p = mk('path', {
+          d,
+          fill: 'none',
+          stroke: '#333',
+          'stroke-width': 2,
+          'marker-end': which === 'A' ? 'url(#arrowDotted)' : 'url(#arrowDashed)',
+          'stroke-dasharray': which === 'A' ? '2 6' : '8 6'
+        });
+        svg.appendChild(p);
+
+        // small label near the curve peak
+        svg.appendChild(txt(midX, midY - 6, which, {anchor:'middle'}));
+      }
+    }
+
+    // ----- DOM helpers -----
+    function rect(x,y,w,h,fill,stroke,r=0){ const el=mk('rect',{x,y,width:w,height:h,rx:r,ry:r,fill,stroke}); svg.appendChild(el); return el; }
+    function txt(x,y,s,opts={}){ const t=mk('text',{x,y,'text-anchor':opts.anchor||'start',class:'label'},s); return t; }
+    function mk(tag, attrs, text){ const el=document.createElementNS(NS, tag); if(attrs) for(const[k,v] of Object.entries(attrs)) el.setAttribute(k,v); if(text!=null) el.textContent=text; return el; }
+
+    // ----- UI wiring -----
+    const list = new LinkedListWithBranches();
+    const value = document.getElementById('value');
+    const nodeIndexSel = document.getElementById('nodeIndex');
+    const branchASel = document.getElementById('branchA');
+    const branchBSel = document.getElementById('branchB');
+
+    document.getElementById('append').onclick = () => { list.append(inputVal()); refreshSelectors(); render(list); };
+    document.getElementById('demo').onclick = () => { ['A','B','C','D'].forEach(v => list.append(v)); refreshSelectors(); render(list); };
+
+    document.getElementById('applyLinks').onclick = () => {
+      const i = parseInt(nodeIndexSel.value, 10);
+      const a = branchASel.value === 'none' ? null : parseInt(branchASel.value, 10);
+      const b = branchBSel.value === 'none' ? null : parseInt(branchBSel.value, 10);
+      list.setBranch(i, 'A', a);
+      list.setBranch(i, 'B', b);
+      render(list);
+    };
+
+    function inputVal() {
+      const v = value.value.trim();
+      return v === '' ? Math.floor(Math.random()*100) : v;
+    }
+
+    function refreshSelectors() {
+      const nodes = list.toArray();
+      const opts = nodes.map((_, i) => `<option value="${i}">${i}</option>`).join('');
+      nodeIndexSel.innerHTML = opts || '<option value="0">0</option>';
+      const targetOpts = `<option value="none">(none)</option>` + opts;
+      branchASel.innerHTML = targetOpts;
+      branchBSel.innerHTML = targetOpts;
+    }
+
+    // initial
+    refreshSelectors();
+    render(list);
+  </script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ice/3.6.5/Ice.min.js"></script>
+  <meta charset="utf-8">
+  <title>Inline Change Editor Demo</title>
+  <style>
+    .comment[data-comment] {
+      background-color: #ffffd0;
+    }
+  </style>
+</head>
+<body>
+  <div class="control">
+    <button id="accept">Accept</button>
+    <button id="reject">Reject</button>
+    <button id="comment">Comment</button>
+  </div>
+  <div id="editor" style="border:1px solid #ccc; padding:10px;" contenteditable="true">
+    <p>This is a <span class="del cts-1" data-userid="1" data-username="Alice">simple</span> <span class="ins cts-2" data-userid="2" data-username="Bob">example</span> document.</p>
+  </div>
+  <script>
+    var tracker = new InlineChangeEditor({
+      element: document.getElementById('editor'),
+      handleEvents: true,
+      currentUser: { id: 1, name: 'User 1' },
+      plugins: [
+      'IceAddTitlePlugin',
+      'IceEmdashPlugin',
+       { name: 'IceCopyPastePlugin', settings: { preserve: 'p,a[href],span[id,class]em,strong' } } ]
+    }).startTracking();
+  </script>
+</body>
+</html>

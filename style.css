@@ -10,3 +10,166 @@ html, body {
   bottom: 0;
   width: 100%;
 }
+
+/* OAuth and Account Management Styles */
+
+.oauth-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.oauth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    color: #333;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.oauth-btn:hover {
+    background: #f5f5f5;
+    border-color: #999;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.oauth-btn svg {
+    flex-shrink: 0;
+}
+
+.google-btn:hover {
+    border-color: #4285F4;
+}
+
+.microsoft-btn:hover {
+    border-color: #00A4EF;
+}
+
+.linkedin-btn:hover {
+    border-color: #0077B5;
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 20px 0;
+    color: #666;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #ddd;
+}
+
+.divider span {
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.account-links {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.account-links a {
+    color: #4285F4;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.account-links a:hover {
+    text-decoration: underline;
+}
+
+/* Account Management Modal Styles */
+
+.account-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.account-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+#profileInfo {
+    margin-bottom: 15px;
+    line-height: 1.6;
+}
+
+#profileInfo p {
+    margin: 5px 0;
+}
+
+.danger-zone {
+    border-color: #dc3545;
+    background: #fff5f5;
+}
+
+.danger-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+}
+
+.danger-btn:hover {
+    background: #c82333;
+}
+
+#editProfileForm input,
+#changePasswordForm input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+#editProfileForm button,
+#changePasswordForm button,
+.account-section button {
+    padding: 10px 20px;
+    margin-right: 10px;
+    border: none;
+    border-radius: 4px;
+    background: #4285F4;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#editProfileForm button:hover,
+#changePasswordForm button:hover,
+.account-section button:hover {
+    background: #357ae8;
+}
+
+#cancelEditBtn,
+#cancelPasswordBtn {
+    background: #6c757d;
+}
+
+#cancelEditBtn:hover,
+#cancelPasswordBtn:hover {
+    background: #5a6268;
+}
+

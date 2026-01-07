@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Permomap: Collaborative Editor</title>
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <style>
+    #editor { min-height:200px; margin:30px auto; max-width: 640px; background: #fff; border: 1px solid #ddd; }
+    .author-bubble {
+      display: inline-block;
+      background: #444;
+      color: #fff;
+      border-radius: 16px;
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: bold;
+      margin-right: 2px;
+      position: relative;
+      top: -2px;
+    }
+    .inserted { text-decoration: underline; }
+    .deleted { text-decoration: line-through; opacity: 0.7; }
+    /* Example user colors */
+    .user-alice { color: #0074d9; }
+    .user-bob { color: #27ae60; }
+    .user-charlie { color: #db3a34; }
+    /* Add more as needed */
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/yjs@13/dist/yjs.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/y-websocket@1/dist/y-websocket.js"></script>
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/y-quill@1/dist/y-quill.js"></script>
+  </head>
+  <body>
+  
+  <script>
+    /* 1. User and colors */
+    const COLORS = ['user-alice','user-bob','user-charlie','user-dave','user-eve']
+    let username = document.getElementById('username').value.trim().toLowerCase();
+    if(!username) username = 'alice'; // fallback
+    
+    let userColorCls = COLORS[Object.keys(COLORS).indexOf(username)] || 'user-' + username;
+    window.session_info = { username };
+    
+    /* 2. Setup Yjs doc + WebSocket provider */
+    const ydoc = new Y.Doc();
+    const provider = new Y.WebsocketProvider('ws://localhost:1234', 'permomap-collab', ydoc);
+    const ytext = ydoc.getText('quill');
+    
+    /* 3. Setup Quill for rich-text */
+    const quill = new Quill('#editor', {
+      theme: 'snow',
+      modules: { toolbar: [['bold','italic','underline','strike']] }
+    });
+
+/* 4. Yjs binding */
+const binding = new window.YQuill.QuillBinding(ytext, quill);
+
+/* 5. Rendering username "bubble" above deletions */
+
+function addAuthorBubbles(delta, author) {
+  let newDelta = { ops: [] };
+  for (let op of delta.ops) {
+    let userClass = 'user-'+author;
+    if (op.insert) {
+      // Inserted text: underline, colored
+      newDelta.ops.push({
+        insert: op.insert,
+        attributes: { ...op.attributes, class: userClass + " inserted" }
+      });
+    } else if (op.delete) {
+      // Strikethrough: replace with formatted text node
+      // Not needed with Quill; handled via custom blot if desired.
+    } else if (op.retain && op.attributes && op.attributes.strike) {
+      // Deletion
+      newDelta.ops.push({
+        retain: op.retain,
+        attributes: { ...op.attributes, class: userClass + " deleted" }
+      });
+    } else {
+      newDelta.ops.push(op);
+    }
+  }
+  return newDelta;
+}
+
+function getInitials(name) {
+  if (!name) return "??";
+  let n = name.trim().split(' ');
+  if (n.length === 1) return (n[0].slice(0,2)).toUpperCase();
+  return (n[0][0] + n[n.length-1][0]).toUpperCase();
+}
+
+/* 6. Listen to Quill user actions */
+quill.on('text-change', (delta, oldDelta, source) => {
+  if(source === 'user') {
+    // For each op, add our user info
+    let author = window.session_info.username;
+    delta.ops = delta.ops.map(op => {
+      if(op.insert) {
+        op.attributes = { ...op.attributes, color: null, class: userColorCls + " inserted" };
+      }
+      if(op.delete) {
+        // Deletion: Actually y-quill/Quill does not allow us to style deletes in live model;
+        // Instead, listen to 'delta' and apply custom markups on server or via Quill modules.
+      }
+      return op;
+    });
+    // Due to Quill/Yjs, insertion visuals are automatic (underline + color)
+    // For deletion, use "formatText" to style it as strike+colored
+    // e.g. quill.formatText(index, length, {'strike': true, 'class': userColorCls+" deleted"});
+  }
+});
+
+/* 7. Show bubbles. Most easily done via Quill custom blot or a MutationObserver. Here's a simple observer. */
+
+const obs = new MutationObserver(function(muts){
+  muts.forEach(function(mut){
+    for(const node of mut.addedNodes) {
+      if(node.nodeType===1) {
+        // Is this a newly struck text?
+        if(node.tagName==='SPAN' && node.style.textDecoration==='line-through') {
+          let author = node.getAttribute('data-author') || node.className.match(/user-([a-zA-Z0-9]+)/)?.[0] || username;
+          let initials = getInitials(author);
+          let bubble = document.createElement('span');
+          bubble.className = "author-bubble";
+          bubble.textContent = initials;
+          // Insert bubble before node
+          node.parentNode.insertBefore(bubble, node);
+        }
+      }
+    }
+  });
+});
+obs.observe(document.querySelector('#editor'), { childList:true, subtree:true });
+
+/* 8. CSS coloring (already handled by .user-XXXX etc). If you have user palette, assign accordingly. */
+
+// Notes:
+// - "Inserted" (i.e., added) text is covered via Quill's underline style and class color
+// - "Deletions" in Quill/Yjs are handled via strikethrough, but to persist, you need a custom Quill blot/module
+//   For a production system, look at [yjs + prosemirror](https://docs.yjs.dev/ecosystem/collaborative-rich-text-editors) or Quill customizations for "track changes".
+
+</script>
+<div>
+  <label>
+    Username: <input id="username" value="alice" style="width:100px;">
+    <button onclick="window.location.reload()">Reload as user</button>
+  </label>
+</div>
+<div id="editor"></div>
+</body>
+</html>
+

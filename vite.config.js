@@ -18,6 +18,11 @@
           '/api/login': 'http://localhost:3000',
           '/api/logout': 'http://localhost:3000',
           '/api/get_session': 'http://localhost:3000',
+          '/permomap/collections': {
+            target: 'http://localhost:9000',
+            changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/permomap/, ''),
+          },
         },
       },
       base: process.env.VITE_BASE_URL || "/",

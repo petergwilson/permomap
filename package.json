@@ -11,13 +11,21 @@
     "start:docker-infra": "cross-env FEATURE_SERVER_PORT=9000 docker compose up -d --build postgres pg_featureserv otel-collector jaeger prometheus loki grafana",
     "stop": "docker compose down",
     "build": "vite build",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "server:dev": "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/gis NODE_ENV=development node backend/server.mjs",
+    "pg_featureserv": "cd /home/peter/pg_featureserv && ./pg_featureserv --config /home/peter/permomap/pg_featurserv_config/pg_featureserv.dev.toml",
+    "dev": "concurrently \"npm start\" \"npm run server:dev\" \"npm run pg_featureserv\" --names \"client,server,geoserver\" --prefix-colors \"cyan,blue,red\"",
+    "dev:all": "concurrently \"npm run server:dev\" \"npm run pg_featureserv\" --names \"server,geoserver\" --prefix-colors \"blue,red\"",
+    "db:backup": "bash scripts/backup-database.sh",
+    "db:deploy": "bash scripts/deploy-database.sh",
+    "deploy:full": "npm run build && npm run db:deploy"
   },
   "devDependencies": {
     "@babel/cli": "^7.27.2",
     "@babel/core": "^7.27.3",
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
+    "concurrently": "^9.2.1",
     "sass-embedded": "^1.89.0",
     "vite": "^6.3.5"
   },
@@ -29,10 +37,14 @@
     "connect-pg-simple": "^10.0.0",
     "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
     "express-session": "^1.18.1",
-    "ice": "^3.7.100",
-    "nytimes-ice": "^0.6.3",
+    "helmet": "^8.1.0",
     "ol": "latest",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-linkedin-oauth2": "^2.0.0",
+    "passport-microsoft": "^2.1.0",
     "pg": "^8.16.0"
   }
 }
