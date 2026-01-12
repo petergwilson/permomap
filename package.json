@@ -21,7 +21,7 @@
     "deploy:full": "npm run build && npm run db:deploy"
   },
   "devDependencies": {
-    "@babel/cli": "^7.27.2",
+    "@babel/cli": "^7.28.6",
     "@babel/core": "^7.27.3",
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
