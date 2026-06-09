@@ -13,6 +13,7 @@
     "build": "vite build",
     "deploy:client": "vite build && sudo mkdir -p /var/www/permomap && sudo cp -r dist/. /var/www/permomap/",
     "deploy:dev": "vite build && sudo mkdir -p /var/www/permomap && sudo rsync -a --delete --checksum dist/. /var/www/permomap/",
+    "deploy:prod": "vite build && rsync -a --delete --checksum dist/. acheronuser@acheron:/var/www/permomap/",
     "serve": "vite preview",
     "server:dev": "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/gis NODE_ENV=development node backend/server.mjs",
     "pg_featureserv": "cd /home/peter/pg_featureserv && ./pg_featureserv --config /home/peter/permomap/pg_featurserv_config/pg_featureserv.dev.toml",
