@@ -22,11 +22,11 @@
           '/api/logout': 'http://permomap.wilsonenv.nz:3000',
           '/api/get_session': 'http://permomap.wilsonenv.nz:3000',
           '/permomap/collections': {
-            target: 'http://permomap.wilsonenv.nz:9000',
+            target: 'http://tileserver2.wilsonenv.nz',
             changeOrigin: true,
         rewrite: (path) => path.replace(/^\/permomap/, ''),
           },
         },
       },
-      base: process.env.VITE_BASE_URL || "/permomap/",
+      base: process.env.VITE_BASE_URL,
     });

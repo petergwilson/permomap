@@ -866,7 +866,7 @@ app.post('/api/rollforward', requireAuth, async(req, res) => {
 });
 
 // Get track version history - for displaying git-like diff of track changes
-app.get('/api/track-versions/:trackId', requireAuth, async (req, res) => {
+app.get('/api/track-versions/:trackId', async (req, res) => {
     const client = await pool.connect();
     
     try {

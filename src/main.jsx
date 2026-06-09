@@ -2019,6 +2019,8 @@ document.head.appendChild(style_control_save);
         // Store selected feature globally for maintenance functions
         window.lastSelectedFeature = selectedFeature;
 
+        if (!selectedFeature) return;
+
         //const geojsonFormat=new GeoJSON();
         //const geojsonObject = geojsonFormat.writeFeatureObject(selectedFeature);
 
