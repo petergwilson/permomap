@@ -66,10 +66,10 @@
 
 
 
- //GEOSERVER_BASE
+ //geoserver2_BASE
  //Set in .env.production or .env.development
- const GEOSERVER_BASE = import.meta.env.VITE_GEOSERVER_BASE;
-//const GEOSERVER_BASE = 'https://geoserver.wilsonenv.nz/';
+ const geoserver2_BASE = import.meta.env.VITE_geoserver2_BASE;
+//const geoserver2_BASE = 'https://geoserver2.wilsonenv.nz/';
 
 
 
@@ -645,7 +645,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     source: new VectorSource({
         //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
         //CAN BE CHANGED
-        url: GEOSERVER_BASE+'collections/public.doc_huts/items.json?limit=1000',
+        url: geoserver2_BASE+'collections/public.doc_huts/items.json?limit=1000',
         format: new GeoJSON(),
         wrapX: false,
         name: 'DOC Huts',
@@ -659,7 +659,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
       }
     });
     pg_doc_huts.setMinZoom(8);
-    pg_doc_huts.setZIndex(5);
+    pg_doc_huts.setZIndex(40);
 
 
   //Google Aerial
@@ -708,21 +708,31 @@ loginSubmitButton.addEventListener("click", async(event) =>{
   });
 */
 
-  //LINZ Aerial
-  const linz_aerial=new ImageTile({
+    // LINZ Aerial (optional fallback)
+    const linz_aerial = new TileLayer({
         source: new XYZ({
-            url: 'https://basemaps.linz.govt.nz/v1/tiles/aerial/3857/{z}/{x}/{y}.png?api=20b10a680c3742798647ec56775918a4'
+            url: 'https://basemaps.linz.govt.nz/v1/tiles/aerial/3857/{z}/{x}/{y}.png?api=20b10a680c3742798647ec56775918a4',
+            attributions: 'Sourced from LINZ. Crown Copyright reserved.',
+            maxZoom: 19,
         }),
-        ZIndex:1,
-  })
+        visible: false,
+    });
+    linz_aerial.setZIndex(-110);
 
-
-    const topo50_layer=new TileLayer({
-        source: new ImageTile({
+    // LINZ Topo50 base layer
+    const topo50_layer = new TileLayer({
+        source: new XYZ({
             url: 'https://tiles-cdn.koordinates.com/services;key=20b10a680c3742798647ec56775918a4/tiles/v4/layer=50767/EPSG:3857/{z}/{x}/{y}.png',
-            }),
-        });
-      topo50_layer.setZIndex(1);
+            attributions: 'Sourced from LINZ. Crown Copyright reserved.',
+            maxZoom: 19,
+        }),
+        visible: true,
+    });
+    topo50_layer.getSource().on('tileloaderror', () => {
+        console.warn('LINZ Topo50 tile failed to load. Check LINZ/Koordinates API key and layer ID.');
+    });
+    topo50_layer.setOpacity(1);
+    topo50_layer.setZIndex(-100);
 
        // Create a style function for DOC layer
        var lightStroke_doc = new Style({
@@ -827,7 +837,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         source: new VectorSource({
             //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
             //CAN BE CHANGED
-            url: GEOSERVER_BASE+'collections/public.permolat_tracks_prod/items.json?limit=500&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian&filter=current_version=false',
+            url: geoserver2_BASE+'collections/public.permolat_tracks_prod/items.json?limit=500&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian&filter=current_version=false',
             format: new GeoJSON(),
             wrapX: false,
             name: 'permolat_tracks_pending',
@@ -837,8 +847,8 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         style: [pg_pending_flash_on_style,pg_pending_flash_off_style],
         });
         pg_pending.setMinZoom(8);
-        //This z index is set to be above the Z index for pg_public to ensure the colours change for tracks that have been edited
-        pg_pending.setZIndex(10);
+        // Keep pending edits on top of all other overlays.
+        pg_pending.setZIndex(50);
   
    
    
@@ -881,7 +891,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     source: new VectorSource({
         //ONLY ASK FOR SOME PROPERTIES TO AVOID FILLING UP FORMS
         //CAN BE CHANGED
-        url: GEOSERVER_BASE+'collections/public.permolat_tracks_prod/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian&filter=current_version=true',
+        url: geoserver2_BASE+'collections/public.permolat_tracks_prod/items.json?limit=1000&properties=lastcut,nextcut,geom,id,trackname,layer_name,importance,tracktype,currentcon,custodian&filter=current_version=true',
         format: new GeoJSON(),
         wrapX: false,
         name: 'permolat_tracks',
@@ -890,13 +900,13 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     style: [lightStroke_permolat, darkStroke_permolat],
     });
     pg_public.setMinZoom(6);
-    pg_public.setZIndex(10);
+    pg_public.setZIndex(20);
 
 
     const pg_doc = new VectorLayer({
         // /background: 'white',
         source: new VectorSource({
-            url: GEOSERVER_BASE+'collections/public.doc_tracks/items.json?limit=1000',
+            url: geoserver2_BASE+'collections/public.doc_tracks/items.json?limit=1000',
             format: new GeoJSON(),
             wrapX: false,
             minZoom: 8, //minimum zoom level
@@ -905,7 +915,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         style: [lightStroke_doc, darkStroke_doc],
         });
     pg_doc.setMinZoom(8);
-    pg_doc.setZIndex(7);
+    pg_doc.setZIndex(30);
     
     
     /*Global variables - not ideal, but needed for now
@@ -1768,7 +1778,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     });
 
     // Select interaction for all layers
-    //Except of course if the layer is turned off at the geoserver then it won't show to be clicked
+    //Except of course if the layer is turned off at the geoserver2 then it won't show to be clicked
     //THIS WAY MAY BE LESS CUMBERSOME THAN TURNING THEM ON AND OFF FOR EACH LAYER BASED ON A USER ROLE
     const selectInteraction= new Select({
         //Choose layers to select
@@ -1855,6 +1865,13 @@ document.head.appendChild(style_control_save);
           //projection: getProjection(OLTB.ConfigManager.getConfig().projection.default)
       }),
     });
+
+    // DEBUG: Log initial layer stack
+    console.log('=== MAP INITIALIZED ===');
+    map.getLayers().forEach((layer, idx) => {
+        console.log(`Layer ${idx}: ${layer.get('name') || 'unnamed'} | ZIndex: ${layer.getZIndex()} | Visible: ${layer.getVisible()} | Source: ${layer.getSource()?.constructor?.name || 'N/A'}`);
+    });
+    console.log('Topo50 layer details:', { visible: topo50_layer.getVisible(), zindex: topo50_layer.getZIndex(), opacity: topo50_layer.getOpacity() });
 
 
 
@@ -2953,10 +2970,13 @@ window.on_select = on_select;
             window.setUserClass(role || 'public');
         }
 
+        console.log('=== RELOAD USER SETTINGS: role=' + role + ' ===');
+
         switch(role) {
             case 'public':
             //Public users get read-only view with basic layers
                 map.setLayers([/*googleLayer,*/topo50_layer,pg_doc, pg_doc_huts, pg_public]);
+                console.log('Public role: layer stack set');
                 editorDiv.style.lineHeight = '1.4';
                 editorDiv.style.paddingTop = '4px';
                 break;
@@ -2964,6 +2984,7 @@ window.on_select = on_select;
             case 'user': 
             //General users get basic map setup with editing capabilities
                 map.setLayers([/*googleLayer,*/topo50_layer,pg_doc, pg_doc_huts, pg_public, pg_pending]);
+                console.log('User role: layer stack set with pending');
                  //Update select interactions to just the original layer
                  //selectInteraction.set('layers', [pg_public]);
                  //modifyInteraction.set('features',[pg_public]);
@@ -2998,6 +3019,7 @@ window.on_select = on_select;
                 map.setLayers([/*googleLayer,*/topo50_layer,pg_doc, pg_doc_huts,pg_public,
                   pg_pending
                 ]);
+                console.log('Moderator role: layer stack set with pending');
                 //Update select and modify interactions to include the pending layer
 
                 //const currentLayers = selectInteraction.getLayers().getArray();
@@ -3011,12 +3033,21 @@ window.on_select = on_select;
             default:
             //Default to public view for any unrecognized roles
                 map.setLayers([/*googleLayer,*/topo50_layer,pg_doc, pg_doc_huts, pg_public]);
+                console.log('Default role: layer stack set');
                 editorDiv.style.lineHeight = '1.4';
                 editorDiv.style.paddingTop = '4px';
                 break;
 
         }
 
+        // DEBUG: Log final layer stack after role application
+        setTimeout(() => {
+            console.log('=== FINAL LAYER STACK after setLayers ===');
+            map.getLayers().forEach((layer, idx) => {
+                console.log(`Layer ${idx}: ${layer.get('name') || 'unnamed'} | ZIndex: ${layer.getZIndex()} | Visible: ${layer.getVisible()} | Opacity: ${layer.getOpacity()}`);
+            });
+            console.log('Topo50 state:', { visible: topo50_layer.getVisible(), zindex: topo50_layer.getZIndex(), opacity: topo50_layer.getOpacity(), inMap: map.getLayers().getArray().includes(topo50_layer) });
+        }, 100);
 
         
     }

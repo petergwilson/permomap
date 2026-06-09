@@ -11,6 +11,7 @@
     "start:docker-infra": "cross-env FEATURE_SERVER_PORT=9000 docker compose up -d --build postgres pg_featureserv otel-collector jaeger prometheus loki grafana",
     "stop": "docker compose down",
     "build": "vite build",
+    "deploy:client": "vite build && sudo mkdir -p /var/www/permomap && sudo cp -r dist/. /var/www/permomap/",
     "serve": "vite preview",
     "server:dev": "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/gis NODE_ENV=development node backend/server.mjs",
     "pg_featureserv": "cd /home/peter/pg_featureserv && ./pg_featureserv --config /home/peter/permomap/pg_featurserv_config/pg_featureserv.dev.toml",

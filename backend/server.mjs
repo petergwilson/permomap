@@ -18,6 +18,7 @@ const app = express();
 //process.env.PORT may be able to be set at run time, don't know
 const PORT = process.env.PORT || 3000;
 const DATABASE_NAME = process.env.DATABASE_NAME || 'gis';
+const BASE_PATH = process.env.BASE_PATH || '';
 
 // PostgreSQL connection info
 //Adjust if necessary if database parameters change
