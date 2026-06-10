@@ -231,6 +231,7 @@
         //Show settings button
         showSettingsButton(true);
         setReportErrorButtonVisible(true);
+        if (typeof window.setDrawControlVisible === 'function') window.setDrawControlVisible(true);
         
         //Update login button to show LOGOUT
         const loginBtn = document.getElementById("login");
@@ -589,6 +590,8 @@ window.addEventListener("click", (event) => {
             showSettingsButton(false);
             setReportErrorButtonVisible(false);
             
+            if (typeof window.setDrawControlVisible === 'function') window.setDrawControlVisible(false);
+            
             // Wait a moment for the session to be destroyed on the server
             await new Promise(resolve => setTimeout(resolve, 100));
             
@@ -659,6 +662,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         //Show settings button
         showSettingsButton(true);
         setReportErrorButtonVisible(true);
+        if (typeof window.setDrawControlVisible === 'function') window.setDrawControlVisible(true);
         
         //THIS IS NOT MULTI_TAB UPDATING
         //WILL NEED window.storage event
@@ -2176,6 +2180,212 @@ style_control_save.innerHTML = `
 `;
 document.head.appendChild(style_control_save);
 
+// ─── Draw New Track Control ──────────────────────────────────────────────────
+
+// Temporary source + layer for drawing a new track
+const drawSource = new VectorSource({ wrapX: false });
+const drawLayer = new VectorLayer({
+    source: drawSource,
+    style: new Style({
+        stroke: new Stroke({ color: '#FF6600', width: 3 }),
+    }),
+    zIndex: 50,
+});
+
+// "Draw New Track" button control
+const drawControlDiv = document.createElement('div');
+drawControlDiv.className = 'custom-draw-control';
+drawControlDiv.innerHTML = '<button title="Start drawing a new track">+ New Track</button>';
+drawControlDiv.style.display = 'none'; // Hidden until logged in
+
+class DrawControl extends Control {
+    constructor(opt_options) {
+        const options = opt_options || {};
+        super({ element: drawControlDiv, target: options.target });
+        drawControlDiv.querySelector('button').addEventListener('click', startDrawing);
+    }
+}
+
+const style_control_draw = document.createElement('style');
+style_control_draw.innerHTML = `
+  .custom-draw-control {
+    position: absolute;
+    top: 40px;
+    right: 10px;
+    background-color: #B85450;
+    padding: 5px;
+    border: 1px solid #8B3A3A;
+    z-index: 1000;
+  }
+  .custom-draw-control button {
+    color: white;
+    font-weight: bold;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+  }
+  .custom-draw-cancel {
+    position: absolute;
+    top: 70px;
+    right: 10px;
+    background-color: #555;
+    padding: 5px;
+    border: 1px solid #333;
+    z-index: 1000;
+    display: none;
+  }
+  .custom-draw-cancel button {
+    color: white;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+  }
+`;
+document.head.appendChild(style_control_draw);
+
+// Cancel button (shown while drawing)
+const drawCancelDiv = document.createElement('div');
+drawCancelDiv.className = 'custom-draw-cancel';
+drawCancelDiv.innerHTML = '<button>✕ Cancel Draw</button>';
+
+class DrawCancelControl extends Control {
+    constructor(opt_options) {
+        const options = opt_options || {};
+        super({ element: drawCancelDiv, target: options.target });
+        drawCancelDiv.querySelector('button').addEventListener('click', cancelDrawing);
+    }
+}
+
+// Draw interaction (created fresh each time)
+let activeDrawInteraction = null;
+
+function startDrawing() {
+    if (activeDrawInteraction) return; // already drawing
+
+    drawSource.clear();
+
+    // Disable select/modify while drawing
+    selectInteraction.setActive(false);
+    modifyInteraction.setActive(false);
+
+    activeDrawInteraction = new Draw({ source: drawSource, type: 'LineString' });
+    map.addInteraction(activeDrawInteraction);
+    map.addLayer(drawLayer);
+    drawCancelDiv.style.display = 'block';
+
+    activeDrawInteraction.on('drawend', function (evt) {
+        // Remove the draw interaction immediately
+        map.removeInteraction(activeDrawInteraction);
+        activeDrawInteraction = null;
+        drawCancelDiv.style.display = 'none';
+
+        // Store the drawn feature for the modal
+        window._newTrackFeature = evt.feature;
+
+        // Show details modal
+        document.getElementById('new_track_name').value = '';
+        document.getElementById('new_track_type').value = '';
+        document.getElementById('new_track_importance').value = '';
+        document.getElementById('new_track_custodian').value = '';
+        document.getElementById('new_track_condition').value = '';
+        document.getElementById('newTrackModal').style.display = 'block';
+    });
+}
+
+function cancelDrawing() {
+    if (activeDrawInteraction) {
+        map.removeInteraction(activeDrawInteraction);
+        activeDrawInteraction = null;
+    }
+    drawSource.clear();
+    map.removeLayer(drawLayer);
+    drawCancelDiv.style.display = 'none';
+    selectInteraction.setActive(true);
+    modifyInteraction.setActive(true);
+    window._newTrackFeature = null;
+}
+
+// Show/hide the draw button based on login state
+window.setDrawControlVisible = function(visible) {
+    drawControlDiv.style.display = visible ? 'block' : 'none';
+};
+
+// Wire up the modal buttons (after DOMContentLoaded)
+document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('closeNewTrackModal').addEventListener('click', function () {
+        document.getElementById('newTrackModal').style.display = 'none';
+        cancelDrawing();
+    });
+
+    document.getElementById('cancelNewTrackBtn').addEventListener('click', function () {
+        document.getElementById('newTrackModal').style.display = 'none';
+        cancelDrawing();
+    });
+
+    document.getElementById('submitNewTrackBtn').addEventListener('click', async function () {
+        const trackname = document.getElementById('new_track_name').value.trim();
+        if (!trackname) {
+            alert('Track name is required.');
+            return;
+        }
+        if (!window._newTrackFeature) {
+            alert('No drawn geometry found. Please draw the track again.');
+            return;
+        }
+
+        const geojsonFormat = new GeoJSON();
+        const featureGeoJSON = geojsonFormat.writeFeatureObject(window._newTrackFeature);
+
+        const payload = {
+            geometry: featureGeoJSON.geometry,
+            properties: {
+                trackname,
+                tracktype: document.getElementById('new_track_type').value.trim() || null,
+                importance: document.getElementById('new_track_importance').value || null,
+                custodian: document.getElementById('new_track_custodian').value.trim() || null,
+                currentcon: document.getElementById('new_track_condition').value.trim() || null,
+                layer_name: 'permolat_tracks',
+            }
+        };
+
+        const submitBtn = document.getElementById('submitNewTrackBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving…';
+
+        try {
+            const response = await fetch('/api/new-track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                document.getElementById('newTrackModal').style.display = 'none';
+                window._newTrackFeature = null;
+                drawSource.clear();
+                map.removeLayer(drawLayer);
+                selectInteraction.setActive(true);
+                modifyInteraction.setActive(true);
+                // Refresh the map layer to show the new track
+                pg_public.getSource().refresh();
+                alert(`Track "${trackname}" saved successfully!`);
+            } else {
+                alert('Error saving track: ' + (data.message || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Network error saving track. Please try again.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save Track';
+        }
+    });
+});
+
+// ─── End Draw New Track Control ─────────────────────────────────────────────
 
     const map = new Map({
     //NEED FUNCTIONALITY AROUND TURNING OFF AND ON MODIFICATION
@@ -2183,7 +2393,7 @@ document.head.appendChild(style_control_save);
     //INTERACTIONS ARE CURRENTLY WRITTEN FOR EACH VECTOR LAYER
     
     interactions: defaultInteractions().extend([selectInteraction, modifyInteraction]),
-    controls: defaultControls({attribution: false}).extend([new SaveControl]),
+    controls: defaultControls({attribution: false}).extend([new SaveControl, new DrawControl, new DrawCancelControl]),
     layers: [/*googleLayer,*/topo50_layer,pg_doc, pg_doc_huts, pg_public],
     //layers: [pg_local_wdc_parcels_test],
     target: 'map',

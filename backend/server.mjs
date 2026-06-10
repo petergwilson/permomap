@@ -687,6 +687,89 @@ app.delete('/api/admin/users/:userid', requireAuth, async (req, res) => {
 });
 
 
+// Create a brand-new track (inserts into permolat_tracks_prod + initial version)
+app.post('/api/new-track', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        if (!req.body.geometry) {
+            return res.status(400).json({ success: false, message: 'Missing geometry' });
+        }
+        const props = req.body.properties || {};
+        if (!props.trackname || !props.trackname.trim()) {
+            return res.status(400).json({ success: false, message: 'Track name is required' });
+        }
+
+        await client.query('BEGIN');
+
+        // Generate new ID
+        const idResult = await client.query(
+            'SELECT COALESCE(MAX(id), 0) + 1 AS new_id FROM permolat_tracks_prod'
+        );
+        const new_id = idResult.rows[0].new_id;
+
+        // Insert into permolat_tracks_prod
+        await client.query(`
+            INSERT INTO permolat_tracks_prod
+                (id, trackname, tracktype, layer_name, importance, custodian, currentcon,
+                 geom, current_version, added_by)
+            VALUES
+                ($1, $2, $3, $4, $5, $6, $7,
+                 ST_SetSRID(ST_GeomFromGeoJSON($8), 3857),
+                 true, $9)
+        `, [
+            new_id,
+            props.trackname.trim(),
+            props.tracktype || null,
+            props.layer_name || 'permolat_tracks',
+            props.importance || null,
+            props.custodian || null,
+            props.currentcon || null,
+            JSON.stringify(req.body.geometry),
+            req.session.userid
+        ]);
+
+        // Generate version_id
+        const versionResult = await client.query(
+            'SELECT COALESCE(MAX(version_id), 0) + 1 AS new_version_id FROM permolat_track_versions'
+        );
+        const new_version_id = versionResult.rows[0].new_version_id;
+
+        // Insert initial version
+        await client.query(`
+            INSERT INTO permolat_track_versions
+                (id, trackname, tracktype, layer_name, importance, custodian, currentcon,
+                 geom, version_id, parent_id, added_by, added_timestamp, moderated_timestamp, comments)
+            VALUES
+                ($1, $2, $3, $4, $5, $6, $7,
+                 ST_SetSRID(ST_GeomFromGeoJSON($8), 3857),
+                 $9, $10, $11, NOW(), NOW(), $12)
+        `, [
+            new_id,
+            props.trackname.trim(),
+            props.tracktype || null,
+            props.layer_name || 'permolat_tracks',
+            props.importance || null,
+            props.custodian || null,
+            props.currentcon || null,
+            JSON.stringify(req.body.geometry),
+            new_version_id,
+            new_id,
+            req.session.userid,
+            'New track created via web interface'
+        ]);
+
+        await client.query('COMMIT');
+
+        res.status(201).json({ success: true, id: new_id, version_id: new_version_id });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error creating new track:', error);
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        client.release();
+    }
+});
+
 // Route to handle GeoJSON data
 // Main saving logic - saves to permolat_track_versions
 app.post('/api/save', requireAuth, async(req, res) => {

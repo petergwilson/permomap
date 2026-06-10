@@ -422,5 +422,35 @@
         </div>
     </div>
 
+    <!-- New Track Modal -->
+    <div id="newTrackModal" class="modal" style="z-index:10001;">
+        <div class="modal-content" style="max-width:480px; margin:10% auto;">
+            <span class="close" id="closeNewTrackModal">&times;</span>
+            <h2 style="font-family:'Courier New',monospace; color:#B85450; margin-top:0;">New Track Details</h2>
+            <p style="font-size:13px; color:#666; margin-top:0;">Track geometry has been drawn. Fill in the details below.</p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <label style="font-weight:bold; font-size:13px;">Track Name <span style="color:#B85450;">*</span>
+                    <input type="text" id="new_track_name" placeholder="e.g. Mungo Hut from Toaroha Saddle" style="display:block; width:100%; margin-top:4px; padding:6px; box-sizing:border-box; font-family:'Courier New',monospace;">
+                </label>
+                <label style="font-weight:bold; font-size:13px;">Track Type
+                    <input type="text" id="new_track_type" placeholder="e.g. Foot Track" style="display:block; width:100%; margin-top:4px; padding:6px; box-sizing:border-box; font-family:'Courier New',monospace;">
+                </label>
+                <label style="font-weight:bold; font-size:13px;">Importance (1–5)
+                    <input type="number" id="new_track_importance" min="1" max="5" placeholder="e.g. 3" style="display:block; width:80px; margin-top:4px; padding:6px; box-sizing:border-box; font-family:'Courier New',monospace;">
+                </label>
+                <label style="font-weight:bold; font-size:13px;">Custodian
+                    <input type="text" id="new_track_custodian" placeholder="e.g. Permolat" style="display:block; width:100%; margin-top:4px; padding:6px; box-sizing:border-box; font-family:'Courier New',monospace;">
+                </label>
+                <label style="font-weight:bold; font-size:13px;">Current Condition
+                    <textarea id="new_track_condition" rows="3" placeholder="e.g. Good condition throughout" style="display:block; width:100%; margin-top:4px; padding:6px; box-sizing:border-box; font-family:'Courier New',monospace; resize:vertical;"></textarea>
+                </label>
+            </div>
+            <div style="margin-top:16px; display:flex; gap:10px;">
+                <button id="submitNewTrackBtn" style="background:#B85450; color:white; border:none; padding:8px 18px; cursor:pointer; font-family:'Courier New',monospace; font-weight:bold;">Save Track</button>
+                <button id="cancelNewTrackBtn" style="background:#ccc; color:#333; border:none; padding:8px 18px; cursor:pointer; font-family:'Courier New',monospace;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
