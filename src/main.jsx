@@ -1481,21 +1481,21 @@ loginSubmitButton.addEventListener("click", async(event) =>{
             }
             
             // Create GeoJSON format for OpenLayers
-            const geojsonFormat = new ol.format.GeoJSON();
+            const geojsonFormat = new GeoJSON();
             const feature = geojsonFormat.readFeature(data.geometry, {
                 dataProjection: 'EPSG:3857',
                 featureProjection: 'EPSG:3857'
             });
             
             // Create vector source and layer
-            const vectorSource = new ol.source.Vector({
+            const vectorSource = new VectorSource({
                 features: [feature]
             });
             
-            const vectorLayer = new ol.layer.Vector({
+            const vectorLayer = new VectorLayer({
                 source: vectorSource,
-                style: new ol.style.Style({
-                    stroke: new ol.style.Stroke({
+                style: new Style({
+                    stroke: new Stroke({
                         color: color,
                         width: 4,
                         lineDash: [8, 4]
