@@ -371,7 +371,7 @@ app.get('/api/get_session', (req, res) => {
         role: req.session.role
       });
   } else {
-    res.status(401).json({ ok: false, message: 'Not authenticated' });
+    res.status(200).json({ ok: false, message: 'Not authenticated' });
   }
 });
 
@@ -1343,6 +1343,174 @@ app.get('/api/version-geometry/:versionId', async(req, res) => {
         });
     }
 });
+
+// ─── Error Reporting ────────────────────────────────────────────────────────
+
+const errorReportLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20,
+    message: 'Too many error reports submitted, please try again later'
+});
+
+// POST /api/report-error  – submit an error report (requires login)
+app.post('/api/report-error', errorReportLimiter, requireAuth, async (req, res) => {
+    try {
+        const {
+            error_type,
+            error_message,
+            error_stack,
+            user_description,
+            page_url,
+            viewport_width,
+            viewport_height,
+            screenshot_data,
+            console_log_json
+        } = req.body;
+
+        // Reject oversized screenshots (max ~2 MB base64)
+        if (screenshot_data && screenshot_data.length > 2 * 1024 * 1024) {
+            return res.status(413).json({ ok: false, message: 'Screenshot data too large (max 2 MB)' });
+        }
+
+        // Only store relative path portion of URL to avoid leaking full origins
+        let sanitizedUrl = null;
+        if (page_url) {
+            try {
+                const u = new URL(page_url);
+                sanitizedUrl = (u.pathname + u.search).substring(0, 500);
+            } catch {
+                sanitizedUrl = String(page_url).substring(0, 500);
+            }
+        }
+
+        await pool.query(
+            `INSERT INTO permomap_error_reports
+                 (userid, username, error_type, error_message, error_stack,
+                  user_description, page_url, user_agent,
+                  viewport_width, viewport_height, screenshot_data, console_log_json)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+            [
+                req.session.userid || null,
+                req.session.username || null,
+                (error_type || 'user_report').substring(0, 50),
+                error_message   ? String(error_message).substring(0, 2000)   : null,
+                error_stack     ? String(error_stack).substring(0, 5000)     : null,
+                user_description? String(user_description).substring(0, 2000): null,
+                sanitizedUrl,
+                req.get('User-Agent') ? req.get('User-Agent').substring(0, 500) : null,
+                Number.isInteger(viewport_width)  ? viewport_width  : null,
+                Number.isInteger(viewport_height) ? viewport_height : null,
+                screenshot_data  || null,
+                console_log_json ? String(console_log_json).substring(0, 10000) : null
+            ]
+        );
+
+        res.status(201).json({ ok: true, message: 'Error report submitted. Thank you!' });
+    } catch (error) {
+        console.error('Error report submission failed:', error);
+        res.status(500).json({ ok: false, message: 'Server error' });
+    }
+});
+
+// GET /api/admin/error-reports  – list unacknowledged reports (sysadmin only)
+// Uses SELECT … FOR UPDATE SKIP LOCKED so concurrent admin sessions each get a
+// distinct batch of rows to review without blocking each other.
+app.get('/api/admin/error-reports', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        if (req.session.role !== 'sysadmin') {
+            return res.status(403).json({ ok: false, message: 'System administrator access required' });
+        }
+
+        const limit  = Math.min(parseInt(req.query.limit)  || 50, 200);
+        const offset = Math.max(parseInt(req.query.offset) || 0,  0);
+        const includeAcknowledged = req.query.include_acknowledged === 'true';
+
+        const whereClause = includeAcknowledged ? '' : 'WHERE acknowledged = FALSE';
+
+        const result = await client.query(
+            `SELECT id, userid, username, error_type, error_message, error_stack,
+                    user_description, page_url, user_agent,
+                    viewport_width, viewport_height, console_log_json,
+                    acknowledged, acknowledged_at,
+                    created_at,
+                    CASE WHEN screenshot_data IS NOT NULL THEN true ELSE false END AS has_screenshot
+             FROM permomap_error_reports
+             ${whereClause}
+             ORDER BY created_at DESC
+             LIMIT $1 OFFSET $2
+             FOR UPDATE SKIP LOCKED`,
+            [limit, offset]
+        );
+
+        res.status(200).json({ ok: true, reports: result.rows });
+    } catch (error) {
+        console.error('Get error reports error:', error);
+        res.status(500).json({ ok: false, message: 'Server error' });
+    } finally {
+        client.release();
+    }
+});
+
+// GET /api/admin/error-reports/:id/screenshot  – fetch screenshot for one report
+app.get('/api/admin/error-reports/:id/screenshot', requireAuth, async (req, res) => {
+    try {
+        if (req.session.role !== 'sysadmin') {
+            return res.status(403).json({ ok: false, message: 'System administrator access required' });
+        }
+
+        const reportId = parseInt(req.params.id);
+        if (isNaN(reportId)) {
+            return res.status(400).json({ ok: false, message: 'Invalid report ID' });
+        }
+
+        const result = await pool.query(
+            'SELECT screenshot_data FROM permomap_error_reports WHERE id = $1',
+            [reportId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ ok: false, message: 'Report not found' });
+        }
+
+        res.status(200).json({ ok: true, screenshot_data: result.rows[0].screenshot_data });
+    } catch (error) {
+        console.error('Get screenshot error:', error);
+        res.status(500).json({ ok: false, message: 'Server error' });
+    }
+});
+
+// POST /api/admin/error-reports/:id/acknowledge  – mark a report reviewed
+app.post('/api/admin/error-reports/:id/acknowledge', requireAuth, async (req, res) => {
+    try {
+        if (req.session.role !== 'sysadmin') {
+            return res.status(403).json({ ok: false, message: 'System administrator access required' });
+        }
+
+        const reportId = parseInt(req.params.id);
+        if (isNaN(reportId)) {
+            return res.status(400).json({ ok: false, message: 'Invalid report ID' });
+        }
+
+        const result = await pool.query(
+            `UPDATE permomap_error_reports
+             SET acknowledged = TRUE, acknowledged_by = $1, acknowledged_at = NOW()
+             WHERE id = $2 RETURNING id`,
+            [req.session.userid, reportId]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ ok: false, message: 'Report not found' });
+        }
+
+        res.status(200).json({ ok: true, message: 'Report acknowledged' });
+    } catch (error) {
+        console.error('Acknowledge error report error:', error);
+        res.status(500).json({ ok: false, message: 'Server error' });
+    }
+});
+
+// ─── End Error Reporting ─────────────────────────────────────────────────────
 
 app.get('/api/total_length', async(req, res) => {
     try {

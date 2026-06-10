@@ -18,9 +18,8 @@
           '/api/login': 'http://permomap.wilsonenv.nz:3000',
           '/api/logout': 'http://permomap.wilsonenv.nz:3000',
           '/api/get_session': 'http://permomap.wilsonenv.nz:3000',
-          '/api/login': 'http://permomap.wilsonenv.nz:3000',
-          '/api/logout': 'http://permomap.wilsonenv.nz:3000',
-          '/api/get_session': 'http://permomap.wilsonenv.nz:3000',
+          '/api/user': 'http://permomap.wilsonenv.nz:3000',
+          '/api/report-error': 'http://permomap.wilsonenv.nz:3000',
           '/permomap/collections': {
             target: 'http://tileserver2.wilsonenv.nz',
             changeOrigin: true,

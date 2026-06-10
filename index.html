@@ -140,7 +140,7 @@
         <h3 style="color: #333; font-weight:bold; text-shadow: none; font-family: 'Courier New', monospace; letter-spacing: 0.5px; font-size: 16px; margin: 0; line-height: 1.4;">PERMOLAT COMMUNITY TRACKS</h3>
         <div style="background: #f5f5f5; border: 2px solid #ddd; padding: 4px 8px; border-radius: 3px; align-self: flex-start;"><h6 id="total_length" style="color: #333; font-weight:bold; margin: 0; font-size: 11px;"></h6></div>
       </div> 
-      <div class="w3-bar-item w3-button w3-mobile w3-middle" style="background: #FFF3CD; border: 2px solid #FFC107; margin-top: 8px; padding: 6px 12px; border-radius: 4px;"><h6 style="color: #856404; font-weight:bold; margin: 0; font-size: 12px;">📰 News & Updates Coming Soon</h6></div>
+      <div class="w3-bar-item w3-button w3-mobile w3-middle" style="background: #FFF3CD; border: 2px solid #FFC107; margin-top: 8px; padding: 6px 12px; border-radius: 4px;"><h6 style="color: #856404; font-weight:bold; margin: 0; font-size: 12px;">News & Updates Coming Soon</h6></div>
       <div class="w3-bar-item w3-mobile w3-right" style="margin-top: 8px; padding: 4px 8px; display: flex; align-items: center; gap: 6px;">
         <button id="settings_btn" class="settings-btn" style="display: none; background: none; border: none; cursor: pointer; padding: 2px; border-radius: 50%; transition: background 0.2s;" title="User Settings">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -152,9 +152,7 @@
       </div>
       <div class="w3-bar-item w3-button w3-mobile w3-right nzfs-btn" id="login" style="margin-top: 8px; padding: 6px 10px; font-size: 13px;">LOGIN</div>
       <div class="w3-bar-item w3-button w3-mobile w3-right nzfs-btn" style="margin-top: 8px; padding: 6px 10px; font-size: 13px;">GET INVOLVED</div>
-      <div class="w3-bar-item w3-button w3-mobile w3-right nzfs-btn" style="margin-top: 8px; padding: 6px 10px; font-size: 13px;">ABOUT</div>
-
-        <!-- Login modal-->
+      <div class="w3-bar-item w3-button w3-mobile w3-right nzfs-btn" style="margin-top: 8px; padding: 6px 10px; font-size: 13px;">ABOUT</div>        <!-- Login modal-->
         <div id="loginModal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>
@@ -301,7 +299,7 @@
         <!-- 1/6: Credits -->
         <div id="bottom-panel-credits" style="width: 16.66%; height: 100%; overflow: auto; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
             <div style="text-align: center; font-family: 'Courier New', monospace;">
-                <div style="font-size: 11px; font-weight: bold; color: #333; margin-bottom: 6px;">© Permolat Trust</div>
+                <div style="font-size: 11px; font-weight: bold; color: #333; margin-bottom: 6px;">Permolat Trust</div>
                 <div style="font-size: 9px; color: #666; margin-bottom: 6px;">of New Zealand</div>
                 <div style="font-size: 9px; color: #888;">
                     <a href="https://keasystems.nz" target="_blank" style="color: #1976d2; text-decoration: none;">Kea Systems</a>
@@ -313,6 +311,115 @@
     <!-- Footer -->
     <div style="height: 25px; background: #f5f5f5; display: flex; justify-content: flex-end; align-items: center; padding: 0 15px; font-family: 'Courier New', monospace; font-size: 11px; color: #666; border-top: 2px solid #ddd;">
         <span>v1.0.0 © 2026 Permolat Trust of New Zealand</span>
+    </div>
+
+    <!-- Floating Report Error Button (logged-in users only) -->
+    <button id="report_error_btn"
+            title="Report an Error"
+            style="display:none; position:fixed; bottom:22px; right:22px; z-index:9000;
+                   background:#B85450; color:white; border:none; border-radius:50%;
+                   width:46px; height:46px; cursor:pointer; font-size:20px; line-height:1;
+                   align-items:center; justify-content:center;
+                   box-shadow:0 2px 8px rgba(0,0,0,0.35);">
+        Report Error
+    </button>
+
+    <!-- Report Error Modal -->
+    <div id="reportErrorModal" class="modal" style="z-index:10000;">
+        <div class="modal-content" style="max-width:620px; margin:8% auto; max-height:90vh; overflow-y:auto;">
+            <span class="close" id="closeReportErrorModal">&times;</span>
+            <h2 style="font-family:'Courier New',monospace; color:#B85450; margin-top:0;">Report an Error</h2>
+
+            <!-- Main form -->
+            <div id="reportErrorContent">
+
+                <!-- User description -->
+                <div style="margin-bottom:14px;">
+                    <label style="font-weight:bold; font-size:13px; display:block; margin-bottom:5px;">
+                        Describe what happened <span style="color:#B85450;">*</span>
+                    </label>
+                    <textarea id="error_description"
+                              placeholder="Please describe what you were doing when the error occurred, and what you expected to happen…"
+                              maxlength="2000"
+                              style="width:100%; height:110px; padding:8px; box-sizing:border-box;
+                                     font-family:'Courier New',monospace; font-size:12px;
+                                     border:1px solid #ccc; border-radius:4px; resize:vertical;"></textarea>
+                    <div style="text-align:right; font-size:10px; color:#888; margin-top:2px;">max 2000 characters</div>
+                </div>
+
+                <!-- Captured technical details -->
+                <div id="captured_errors_section" style="display:none; margin-bottom:14px;">
+                    <label style="font-weight:bold; font-size:13px; display:block; margin-bottom:5px;">
+                        Captured Error Details
+                        <span style="font-weight:normal; font-size:11px; color:#666;">(automatically collected)</span>
+                    </label>
+                    <pre id="captured_errors_display"
+                         style="background:#f5f5f5; padding:8px; font-size:10px; font-family:'Courier New',monospace;
+                                max-height:100px; overflow:auto; border:1px solid #ddd; border-radius:4px;
+                                white-space:pre-wrap; word-break:break-all; margin:0;"></pre>
+                </div>
+
+                <!-- Screenshot -->
+                <div style="margin-bottom:16px;">
+                    <label style="font-weight:bold; font-size:13px; display:block; margin-bottom:6px;">
+                        Screenshot
+                        <span style="font-weight:normal; font-size:11px; color:#666;">(optional)</span>
+                    </label>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
+                        <button type="button" id="capture_screenshot_btn"
+                                style="padding:5px 12px; font-size:12px; cursor:pointer;
+                                       background:#4a7c59; color:white; border:none; border-radius:4px;">
+                            Capture Screenshot
+                        </button>
+                        <span style="font-size:12px; color:#666;">or</span>
+                        <label style="padding:5px 12px; font-size:12px; cursor:pointer;
+                                      background:#f5f5f5; border:1px solid #ccc; border-radius:4px;">
+                            Upload Image
+                            <input type="file" id="screenshot_upload" accept="image/*" style="display:none;">
+                        </label>
+                        <span id="screenshot_status" style="font-size:11px; color:#555;"></span>
+                    </div>
+                    <div id="screenshot_preview_container" style="display:none; margin-top:6px;">
+                        <img id="screenshot_preview"
+                             style="max-width:100%; max-height:160px; border:1px solid #ddd; border-radius:4px; display:block;">
+                        <button type="button" id="remove_screenshot_btn"
+                                style="margin-top:4px; font-size:11px; color:#B85450;
+                                       background:none; border:none; cursor:pointer; padding:0;">
+                            ✕ Remove screenshot
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Action buttons -->
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button type="button" id="submit_error_report_btn"
+                            style="padding:8px 22px; background:#B85450; color:white;
+                                   border:none; border-radius:4px; cursor:pointer;
+                                   font-family:'Courier New',monospace; font-size:13px; font-weight:bold;">
+                        Submit Report
+                    </button>
+                    <button type="button" id="cancel_error_report_btn"
+                            style="padding:8px 18px; background:#f5f5f5; color:#333;
+                                   border:1px solid #ccc; border-radius:4px; cursor:pointer;
+                                   font-family:'Courier New',monospace; font-size:13px;">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Success state -->
+            <div id="reportErrorSuccess" style="display:none; text-align:center; padding:30px 20px;">
+                <div style="font-size:52px; margin-bottom:10px;">✅</div>
+                <h3 style="font-family:'Courier New',monospace; color:#4a7c59;">Report Submitted</h3>
+                <p style="font-size:13px; color:#555;">Thank you — we'll investigate the issue.</p>
+                <button type="button" id="close_error_success_btn"
+                        style="padding:8px 22px; background:#4a7c59; color:white;
+                               border:none; border-radius:4px; cursor:pointer;
+                               font-family:'Courier New',monospace; font-size:13px;">
+                    Close
+                </button>
+            </div>
+        </div>
     </div>
 
 </body>

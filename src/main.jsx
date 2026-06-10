@@ -1,3 +1,5 @@
+    import html2canvas from 'html2canvas';
+
     // Core OpenLayers
     import 'ol/ol.css';
     import { Map, View } from 'ol';
@@ -75,36 +77,165 @@
 
 
   //Window.onpageload to check for session information
-  window.session_info=new Object; 
+  window.session_info=new Object;
+
+  // ─── Error Reporting System ─────────────────────────────────────────────────
+  //
+  // Captures console.error / console.warn output and unhandled JS errors so
+  // that a logged-in user can attach recent diagnostics to a manual report.
+  // The "Report Error" button (shown only when logged in) opens a modal where
+  // the user writes a free-text description, optionally captures a screenshot
+  // with html2canvas, and submits the bundle to POST /api/report-error.
+
+  const MAX_LOG_ENTRIES = 30;
+  window._errorLogBuffer = [];   // recent console.error / console.warn messages
+  window._caughtErrors   = [];   // uncaught JS errors / unhandled rejections
+
+  // --- intercept console.error and console.warn ---
+  const _origConsoleError = console.error.bind(console);
+  const _origConsoleWarn  = console.warn.bind(console);
+
+  console.error = function (...args) {
+      window._errorLogBuffer.push({
+          level: 'error',
+          message: args.map(a => (a instanceof Error ? a.stack || a.message : String(a))).join(' '),
+          ts: new Date().toISOString()
+      });
+      if (window._errorLogBuffer.length > MAX_LOG_ENTRIES) window._errorLogBuffer.shift();
+      _origConsoleError(...args);
+  };
+
+  console.warn = function (...args) {
+      window._errorLogBuffer.push({
+          level: 'warn',
+          message: args.map(a => String(a)).join(' '),
+          ts: new Date().toISOString()
+      });
+      if (window._errorLogBuffer.length > MAX_LOG_ENTRIES) window._errorLogBuffer.shift();
+      _origConsoleWarn(...args);
+  };
+
+  // --- capture uncaught errors ---
+  window.onerror = function (message, source, lineno, colno, error) {
+      window._caughtErrors.push({
+          message,
+          source,
+          lineno,
+          colno,
+          stack: error ? error.stack : null,
+          ts: new Date().toISOString()
+      });
+      if (window._caughtErrors.length > 10) window._caughtErrors.shift();
+      return false; // don't suppress
+  };
+
+  window.addEventListener('unhandledrejection', function (event) {
+      const reason = event.reason;
+      window._caughtErrors.push({
+          message: reason instanceof Error ? reason.message : String(reason),
+          stack:   reason instanceof Error ? reason.stack   : null,
+          ts: new Date().toISOString()
+      });
+      if (window._caughtErrors.length > 10) window._caughtErrors.shift();
+  });
+
+  // --- show / hide the floating report-error button ---
+  function setReportErrorButtonVisible(visible) {
+      const btn = document.getElementById('report_error_btn');
+      if (btn) btn.style.display = visible ? 'flex' : 'none';
+  }
+
+  // --- screenshot capture via html2canvas ---
+  async function captureScreenshot() {
+      try {
+          // Attempt to capture the full page; fall back gracefully on errors.
+          const canvas = await html2canvas(document.body, {
+              scale: 0.6,
+              logging: false,
+              useCORS: true,
+              allowTaint: true,
+              ignoreElements: el => el.id === 'reportErrorModal'
+          });
+          return canvas.toDataURL('image/jpeg', 0.55);
+      } catch (e) {
+          _origConsoleWarn('html2canvas capture failed:', e);
+          return null;
+      }
+  }
+
+  // --- open the Report Error modal ---
+  window.openReportErrorModal = async function (prefillMessage, prefillStack) {
+      const modal = document.getElementById('reportErrorModal');
+      if (!modal) return;
+
+      // Reset state
+      document.getElementById('reportErrorContent').style.display = 'block';
+      document.getElementById('reportErrorSuccess').style.display = 'none';
+      document.getElementById('error_description').value = '';
+      document.getElementById('screenshot_status').textContent = '';
+      document.getElementById('screenshot_preview_container').style.display = 'none';
+      document.getElementById('screenshot_upload').value = '';
+      window._reportErrorScreenshotData = null;
+
+      // Pre-populate captured error details
+      const errors = [...window._caughtErrors];
+      if (prefillMessage) {
+          errors.unshift({ message: prefillMessage, stack: prefillStack || null, ts: new Date().toISOString() });
+      }
+      const capturedSection = document.getElementById('captured_errors_section');
+      const capturedDisplay = document.getElementById('captured_errors_display');
+      if (errors.length > 0) {
+          const latest = errors[errors.length - 1];
+          capturedDisplay.textContent =
+              (latest.message || '') +
+              (latest.stack ? '\n\n' + latest.stack : '') +
+              (latest.source ? '\n  at ' + latest.source + ':' + latest.lineno : '');
+          capturedSection.style.display = 'block';
+      } else {
+          capturedSection.style.display = 'none';
+      }
+
+      modal.style.display = 'block';
+
+      // Auto-capture screenshot in background
+      const statusEl = document.getElementById('screenshot_status');
+      statusEl.textContent = 'Capturing screenshot…';
+      const dataUrl = await captureScreenshot();
+      if (dataUrl) {
+          window._reportErrorScreenshotData = dataUrl;
+          const preview = document.getElementById('screenshot_preview');
+          preview.src = dataUrl;
+          document.getElementById('screenshot_preview_container').style.display = 'block';
+          statusEl.textContent = 'Screenshot captured ✓';
+      } else {
+          statusEl.textContent = 'Auto-capture unavailable — please upload manually if needed.';
+      }
+  };
+
+  // ─── End Error Reporting System ──────────────────────────────────────────────
 
   window.onload = async function() {
     // Check if a session exists.
 
-    const get_session=await fetch('/api/get_session', {
+    const get_session = await fetch('/api/get_session', {
         method: 'GET'
-    }).then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.json(); // Parse the JSON response)
-    }).then(data => {
+    }).then(response => response.json()).then(data => {
+        if (data.ok) {
         // Display session information
         console.log(data);
-        //alert("Existing session");
 
         //Update username info
         document.getElementById("username_field").innerHTML=`${data.username}`;
         
         //Show settings button
         showSettingsButton(true);
+        setReportErrorButtonVisible(true);
         
         //Update login button to show LOGOUT
         const loginBtn = document.getElementById("login");
         if (loginBtn) {
             loginBtn.innerHTML = "LOGOUT";
         }
-        
-        //currentUser=data;  
 
         //Update map layers based on permissions
         ///Uses the same function as for other login/session actions
@@ -118,8 +249,14 @@
         //Add to window object for session
         Object.assign(window.session_info,data);
 
-      }).catch(error => {
-        //Unsuccessful - no existing session, user is public/logged out
+        // Fix race condition: if a track was already selected before session loaded,
+        // retroactively update save button visibility based on actual role
+        if (window.lastSelectedFeature) {
+            saveControlDiv.style.visibility = (data.role === 'user' || data.role === 'moderator') ? 'visible' : 'hidden';
+        }
+
+        } else {
+        //No existing session, user is public/logged out
         console.log('No existing session, setting public role');
         
         //Set public role in session_info
@@ -127,6 +264,7 @@
         
         //Hide settings button for public users
         showSettingsButton(false);
+        setReportErrorButtonVisible(false);
         
         //Ensure login button shows LOGIN
         const loginBtn = document.getElementById("login");
@@ -144,6 +282,18 @@
         if (typeof window.setUserClass === 'function') {
             window.setUserClass('public');
         }
+        }
+      }).catch(error => {
+        // Network error - treat as public
+        console.log('Session check failed, setting public role:', error.message);
+        window.session_info.role = 'public';
+        showSettingsButton(false);
+        setReportErrorButtonVisible(false);
+        const loginBtn = document.getElementById("login");
+        if (loginBtn) loginBtn.innerHTML = "LOGIN";
+        document.getElementById("username_field").innerHTML = '';
+        reloadUserSettings(map, 'public');
+        if (typeof window.setUserClass === 'function') window.setUserClass('public');
       });
 
 
@@ -211,6 +361,132 @@ document.addEventListener('DOMContentLoaded', function () {
             menu.style.display = 'none';
         }
     });
+
+    // ─── Report Error Modal Wiring ───────────────────────────────────────────
+
+    const reportErrorModal = document.getElementById('reportErrorModal');
+
+    // Floating bug button
+    document.getElementById('report_error_btn').addEventListener('click', () => {
+        window.openReportErrorModal();
+    });
+
+    // Close button (×)
+    document.getElementById('closeReportErrorModal').addEventListener('click', () => {
+        reportErrorModal.style.display = 'none';
+    });
+
+    // Close on backdrop click
+    window.addEventListener('click', (e) => {
+        if (e.target === reportErrorModal) reportErrorModal.style.display = 'none';
+    });
+
+    // Cancel button
+    document.getElementById('cancel_error_report_btn').addEventListener('click', () => {
+        reportErrorModal.style.display = 'none';
+    });
+
+    // Close success view
+    document.getElementById('close_error_success_btn').addEventListener('click', () => {
+        reportErrorModal.style.display = 'none';
+    });
+
+    // "Capture Screenshot" button (re-capture)
+    document.getElementById('capture_screenshot_btn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('screenshot_status');
+        statusEl.textContent = 'Capturing…';
+        const dataUrl = await captureScreenshot();
+        if (dataUrl) {
+            window._reportErrorScreenshotData = dataUrl;
+            const preview = document.getElementById('screenshot_preview');
+            preview.src = dataUrl;
+            document.getElementById('screenshot_preview_container').style.display = 'block';
+            statusEl.textContent = 'Screenshot captured ✓';
+        } else {
+            statusEl.textContent = 'Capture failed — please upload manually.';
+        }
+    });
+
+    // Remove screenshot
+    document.getElementById('remove_screenshot_btn').addEventListener('click', () => {
+        window._reportErrorScreenshotData = null;
+        document.getElementById('screenshot_preview').src = '';
+        document.getElementById('screenshot_preview_container').style.display = 'none';
+        document.getElementById('screenshot_upload').value = '';
+        document.getElementById('screenshot_status').textContent = '';
+    });
+
+    // Manual file upload
+    document.getElementById('screenshot_upload').addEventListener('change', function () {
+        const file = this.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            document.getElementById('screenshot_status').textContent = 'Only image files are accepted.';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            window._reportErrorScreenshotData = e.target.result;
+            document.getElementById('screenshot_preview').src = e.target.result;
+            document.getElementById('screenshot_preview_container').style.display = 'block';
+            document.getElementById('screenshot_status').textContent = 'Image uploaded ✓';
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // Submit report
+    document.getElementById('submit_error_report_btn').addEventListener('click', async () => {
+        const description = document.getElementById('error_description').value.trim();
+        if (!description) {
+            alert('Please describe what happened before submitting.');
+            return;
+        }
+
+        const submitBtn = document.getElementById('submit_error_report_btn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting…';
+
+        // Build error info from captured errors + console buffer
+        const latestError = window._caughtErrors[window._caughtErrors.length - 1] || null;
+
+        const payload = {
+            error_type:       latestError ? (latestError.stack ? 'unhandled_rejection' : 'ui_error') : 'user_report',
+            error_message:    latestError ? latestError.message : null,
+            error_stack:      latestError ? latestError.stack   : null,
+            user_description: description,
+            page_url:         window.location.href,
+            viewport_width:   window.innerWidth,
+            viewport_height:  window.innerHeight,
+            screenshot_data:  window._reportErrorScreenshotData || null,
+            console_log_json: JSON.stringify(window._errorLogBuffer.slice(-20))
+        };
+
+        try {
+            const response = await fetch('/api/report-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (data.ok) {
+                document.getElementById('reportErrorContent').style.display = 'none';
+                document.getElementById('reportErrorSuccess').style.display = 'block';
+                // Clear captured errors so next report starts fresh
+                window._caughtErrors = [];
+            } else {
+                alert('Could not submit report: ' + (data.message || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Network error submitting report. Please try again.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Report';
+        }
+    });
+
+    // ─── End Report Error Modal Wiring ───────────────────────────────────────
 });
 
     //Assign info DOM element 
@@ -310,6 +586,7 @@ window.addEventListener("click", (event) => {
             
             // Hide settings button
             showSettingsButton(false);
+            setReportErrorButtonVisible(false);
             
             // Wait a moment for the session to be destroyed on the server
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -380,6 +657,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         
         //Show settings button
         showSettingsButton(true);
+        setReportErrorButtonVisible(true);
         
         //THIS IS NOT MULTI_TAB UPDATING
         //WILL NEED window.storage event
@@ -394,6 +672,11 @@ loginSubmitButton.addEventListener("click", async(event) =>{
 
         //Update session info
         Object.assign(window.session_info, data);
+
+        // If a track is already selected, show the save button now that role is known
+        if (window.lastSelectedFeature) {
+            saveControlDiv.style.visibility = (data.role === 'user' || data.role === 'moderator') ? 'visible' : 'hidden';
+        }
 
         //Update map layers based on permissions
       }).catch(error => {
@@ -458,15 +741,26 @@ loginSubmitButton.addEventListener("click", async(event) =>{
   
   // Edit Profile
   document.getElementById('editProfileBtn').addEventListener('click', async () => {
-      const response = await fetch('/api/user/profile');
-      const data = await response.json();
-      const user = data.user;
-      
-      document.getElementById('edit_username').value = user.username;
-      document.getElementById('edit_email').value = user.email || '';
-      
-      document.getElementById('accountContent').style.display = 'none';
-      document.getElementById('editProfileForm').style.display = 'block';
+      try {
+          const response = await fetch('/api/user/profile');
+          if (response.status === 401) {
+              alert('Your session has expired. Please log in again.');
+              accountModal.style.display = 'none';
+              modal.style.display = 'block';
+              return;
+          }
+          if (!response.ok) throw new Error('Failed to load profile');
+          const data = await response.json();
+          const user = data.user;
+          
+          document.getElementById('edit_username').value = user.username;
+          document.getElementById('edit_email').value = user.email || '';
+          
+          document.getElementById('accountContent').style.display = 'none';
+          document.getElementById('editProfileForm').style.display = 'block';
+      } catch (error) {
+          alert('Could not load profile. Please try again.');
+      }
   });
   
   document.getElementById('saveProfileBtn').addEventListener('click', async () => {
@@ -988,6 +1282,12 @@ loginSubmitButton.addEventListener("click", async(event) =>{
             //Uses default MIME types etc
             });
 
+            if (response.status === 401) {
+                alert('Your session has expired. Please log in again to save changes.');
+                document.getElementById('login').click();
+                return;
+            }
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -1039,6 +1339,12 @@ loginSubmitButton.addEventListener("click", async(event) =>{
             params: JSON.stringify(layerName),
             //Uses default MIME types etc
             });
+
+            if (response.status === 401) {
+                alert('Your session has expired. Please log in again.');
+                document.getElementById('login').click();
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -1892,33 +2198,14 @@ document.head.appendChild(style_control_save);
     event.preventDefault();
     const modifiedFeatures = event.features.getArray();
     modifiedFeatures.forEach(feature => {
-        //alert("Logging here:");
-      //console.log("Feature modified:", feature);
          //Update window feature
         const geojsonFormat=new GeoJSON();
         const geojsonObject = geojsonFormat.writeFeatureObject(feature);
 
         //Attach to the window
-        geojson = geojsonObject;
-
-        //Add login details to the geojson to send to the server
-
-        Object.assign(geojson,localStorage.getItem("username"));
+        window.geojson = geojsonObject;
 
     });
-
-
-    //alert('Modify end');
-    // Logic to save the modified features
-
-    //Update window feature
-    //REALLY HACKY AS IT SAVES ALL FEATURES
-    //const geojsonFormat=new GeoJSON();
-    //const geojsonObject = geojsonFormat.writeFeatureObject(modifiedFeatures);
-
-    //Attach to the window
-    //window.geojson = geojsonObject;
-    //return;
 
   });
 
