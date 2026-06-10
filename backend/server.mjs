@@ -14,6 +14,10 @@ import { Strategy as LinkedInStrategy } from 'passport-linkedin-oauth2';
 
 const app = express();
 
+// Trust the first proxy (Apache reverse proxy) so that req.secure and
+// X-Forwarded-For are correctly interpreted, and rate limiter works properly.
+app.set('trust proxy', 1);
+
 //Port for the application, either process.env.PORT variable or 3000
 //process.env.PORT may be able to be set at run time, don't know
 const PORT = process.env.PORT || 3000;

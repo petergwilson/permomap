@@ -3279,28 +3279,6 @@ window.on_select = on_select;
                  //modifyInteraction.set('features',[pg_public]);
                 editorDiv.style.lineHeight = '1.4'; // Default for other roles
                 editorDiv.style.paddingTop = '4px';
-
-
-                // For each line (split by <br> or newline), insert a .edit-meta span above it
-                // We'll split the HTML by <br> tags and wrap each line
-                const lines = input.innerHTML.split(/<br\s*\/?>|\n/);
-                input.innerHTML = ''; // Clear current content
-
-                lines.forEach((line, idx) => {
-                    // Create the meta span
-                    const metaSpan = document.createElement('span');
-                    metaSpan.className = 'edit-meta';
-                    metaSpan.textContent = 'No edit info'; // Or fill with info if available
-
-                    // Create the line div/span
-                    const lineDiv = document.createElement('div');
-                    lineDiv.innerHTML = line;
-
-                    // Append meta and line to input
-                    input.appendChild(metaSpan);
-                    input.appendChild(lineDiv);
-                });
-
                 break;
             case 'moderator': 
             //Moderators get to see existing tracks PLUS CHANGES IN ANOTHER COLOUR
