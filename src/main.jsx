@@ -927,7 +927,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
   //DOC Huts
   const iconStyle_hut = new Style({
     image: new Icon({
-      src: './images/house-xxl.png', // Path to your icon image
+      src: 'house-xxl.png', // Path to your icon image
       anchor: [0.5, 1], // Anchor point of the icon (center bottom)
       scale: 1, // Scale of the icon
       color: '#D32F2F', // Red tint applied to the icon
