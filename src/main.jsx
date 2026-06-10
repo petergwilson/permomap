@@ -2491,10 +2491,11 @@ document.head.appendChild(style_control_save);
 
 
                     //Editable input box
-                    // Use native date input for date fields, contentEditable div for others
+                    // Use native date input for date fields only when user can edit, otherwise a div
                     const isDateField = (key === 'lastcut' || key === 'nextcut');
                     const isCustodianField = (key === 'custodian');
-                    const input = document.createElement(isDateField ? 'input' : 'div');
+                    const canEditDateEarly = isDateField && !isDocLayer && (userRole === 'user' || userRole === 'moderator' || userRole === 'sysadmin');
+                    const input = document.createElement((isDateField && canEditDateEarly) ? 'input' : 'div');
                     
                     // Use different class for date inputs to avoid contentEditable CSS conflicts
                     if (isDateField) {
@@ -2504,36 +2505,49 @@ document.head.appendChild(style_control_save);
                     }
                     
                     if (isDateField) {
-                        input.type = 'date';
-                        
                         // Determine if date field should be editable based on user role and layer type
                         const canEditDate = !isDocLayer && (userRole === 'user' || userRole === 'moderator' || userRole === 'sysadmin');
-                        
+
                         if (canEditDate) {
-                            // Ensure date input is interactive
+                            // Editable: use native date input (browser handles YYYY-MM-DD value)
+                            input.type = 'date';
                             input.style.pointerEvents = 'auto';
                             input.style.cursor = 'pointer';
                             input.style.userSelect = 'auto';
                             input.style.webkitUserSelect = 'auto';
+
+                            console.log('Creating date input for:', key, 'Type:', input.type, 'Editable:', canEditDate);
+
+                            // Convert Unix timestamp to YYYY-MM-DD (required by <input type="date">)
+                            const unixTimestamp = properties[key];
+                            if (unixTimestamp) {
+                                const date = new Date(unixTimestamp * 1000);
+                                const yyyy = date.getFullYear();
+                                const mm = String(date.getMonth() + 1).padStart(2, '0');
+                                const dd = String(date.getDate()).padStart(2, '0');
+                                input.value = `${yyyy}-${mm}-${dd}`;
+                                console.log('Date input value set to:', input.value);
+                            }
                         } else {
-                            // Disable date input for public users or DOC layers
-                            input.disabled = true;
+                            // Read-only: use a plain div so we can show DD/MM/YYYY regardless of browser locale
+                            input.type = undefined;
+                            input.contentEditable = 'false';
                             input.style.pointerEvents = 'none';
                             input.style.cursor = 'default';
                             input.style.opacity = '1';
-                        }
-                        
-                        console.log('Creating date input for:', key, 'Type:', input.type, 'Editable:', canEditDate);
-                        
-                        // Convert Unix timestamp to YYYY-MM-DD format
-                        const unixTimestamp = properties[key];
-                        if (unixTimestamp) {
-                            const date = new Date(unixTimestamp * 1000); // Unix timestamp is in seconds
-                            const yyyy = date.getFullYear();
-                            const mm = String(date.getMonth() + 1).padStart(2, '0');
-                            const dd = String(date.getDate()).padStart(2, '0');
-                            input.value = `${yyyy}-${mm}-${dd}`;
-                            console.log('Date input value set to:', input.value);
+
+                            console.log('Creating date display for:', key, 'Editable:', canEditDate);
+
+                            const unixTimestamp = properties[key];
+                            if (unixTimestamp) {
+                                const date = new Date(unixTimestamp * 1000);
+                                const dd = String(date.getDate()).padStart(2, '0');
+                                const mm = String(date.getMonth() + 1).padStart(2, '0');
+                                const yyyy = date.getFullYear();
+                                input.textContent = `${dd}/${mm}/${yyyy}`;
+                            } else {
+                                input.textContent = 'Not set';
+                            }
                         }
                     } else {
                         //This class allows the tiptap/quill editor to attach itself to this div. 
