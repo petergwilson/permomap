@@ -60,6 +60,7 @@
 
     //Icons
     import Icon from 'ol/style/Icon';
+    import CircleStyle from 'ol/style/Circle';
     
   
     
@@ -931,6 +932,16 @@ loginSubmitButton.addEventListener("click", async(event) =>{
       anchor: [0.5, 1], // Anchor point of the icon (center bottom)
       scale: 1, // Scale of the icon
       color: '#D32F2F', // Red tint applied to the icon
+    }),
+  });
+
+  // Pre-built selected style (same src so image is already cached)
+  const iconStyle_hut_selected = new Style({
+    image: new Icon({
+      src: 'house-xxl.png',
+      anchor: [0.5, 1],
+      scale: 1.3,
+      color: '#FF6600',
     }),
   });
 
@@ -2073,15 +2084,19 @@ loginSubmitButton.addEventListener("click", async(event) =>{
    //addInteraction();
 
 
-    const selectStyle = new Style({
-        fill: new Fill({
-            color: '#FFFF00',
-        }),
-        stroke: new Stroke({
-            color: 'rgb(251, 255, 0)',
-            width: 3,
-        }),
-    });
+    // Style function: yellow circle highlight for hut points, yellow stroke for line features
+    const selectStyle = function(feature) {
+        const geomType = feature.getGeometry()?.getType();
+        if (geomType === 'Point' || geomType === 'MultiPoint') {
+            // Hut: use pre-built orange icon (image already cached)
+            return iconStyle_hut_selected;
+        }
+        // Line / other features: yellow stroke highlight
+        return new Style({
+            fill: new Fill({ color: '#FFFF00' }),
+            stroke: new Stroke({ color: 'rgb(251, 255, 0)', width: 3 }),
+        });
+    };
 
     // Select interaction for all layers
     //Except of course if the layer is turned off at the geoserver2 then it won't show to be clicked
