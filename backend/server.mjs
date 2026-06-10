@@ -1198,10 +1198,10 @@ app.post('/api/version-comment', requireAuth, async(req, res) => {
         
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Comment error:', error);
+        console.error('Comment error:', error.message, error.detail || '', error.hint || '');
         res.status(500).json({ 
             success: false, 
-            message: 'Database error' 
+            message: error.message || 'Database error'
         });
     } finally {
         client.release();

@@ -1472,6 +1472,9 @@ loginSubmitButton.addEventListener("click", async(event) =>{
             const versionsHtml = buildVersionDiffDisplay(data.versions, data.trackedFields, trackName);
             diffPanel.innerHTML = versionsHtml;
             
+            // Load any existing comments into the diff panel
+            await loadAllVersionComments();
+            
             // Build the geometry versions panel
             const geometryHtml = buildGeometryVersionsPanel(data.versions, trackId, trackName);
             geometryPanel.innerHTML = geometryHtml;
@@ -1658,6 +1661,8 @@ loginSubmitButton.addEventListener("click", async(event) =>{
             }
             
             html += `
+                    <!-- Comments for this version -->
+                    <div id="comments-${version.version_id}" data-version-id="${version.version_id}" style="margin-top: 6px;"></div>
                     </div>
                 </div>
             `;
@@ -1933,8 +1938,11 @@ loginSubmitButton.addEventListener("click", async(event) =>{
             
             if (data.success) {
                 alert('Comment added successfully!');
-                // Reload comments for this version
-                await loadVersionComments(versionId);
+                // Refresh the full history panel so the new comment is visible
+                if (window.lastSelectedFeature) {
+                    const fakeEvent = { preventDefault: () => {} };
+                    await view_track_history_onclick(fakeEvent);
+                }
             } else {
                 alert('Error: ' + (data.message || 'Failed to add comment'));
             }
