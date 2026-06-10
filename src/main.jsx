@@ -1517,7 +1517,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
             // Check if it's already a timestamp number
             const timestamp = typeof val === 'number' ? val : parseFloat(val);
             if (isNaN(timestamp)) return String(val);
-            const date = new Date(timestamp * 1000);
+            const date = new Date(timestamp);
             return date.toLocaleDateString('en-NZ', { year: 'numeric', month: 'short', day: 'numeric' });
         };
         
@@ -2518,10 +2518,10 @@ document.head.appendChild(style_control_save);
 
                             console.log('Creating date input for:', key, 'Type:', input.type, 'Editable:', canEditDate);
 
-                            // Convert Unix timestamp to YYYY-MM-DD (required by <input type="date">)
+                            // Convert timestamp (milliseconds) to YYYY-MM-DD (required by <input type="date">)
                             const unixTimestamp = properties[key];
                             if (unixTimestamp) {
-                                const date = new Date(unixTimestamp * 1000);
+                                const date = new Date(unixTimestamp);
                                 const yyyy = date.getFullYear();
                                 const mm = String(date.getMonth() + 1).padStart(2, '0');
                                 const dd = String(date.getDate()).padStart(2, '0');
@@ -2540,7 +2540,7 @@ document.head.appendChild(style_control_save);
 
                             const unixTimestamp = properties[key];
                             if (unixTimestamp) {
-                                const date = new Date(unixTimestamp * 1000);
+                                const date = new Date(unixTimestamp);
                                 const dd = String(date.getDate()).padStart(2, '0');
                                 const mm = String(date.getMonth() + 1).padStart(2, '0');
                                 const yyyy = date.getFullYear();
