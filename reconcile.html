@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<!--
+  Track Maintenance Schedule Reconciler
+  ──────────────────────────────────────
+  Standalone HTML file. Open directly in a browser (file:// or any server).
+  Requires the API backend running: python3 scripts/maintenance_matcher.py
+
+  Workflow:
+    1.  Start the backend:
+            python3 scripts/maintenance_matcher.py [--pdf path/to/schedule.pdf]
+    2.  Open this file in your browser.
+    3.  Upload (or use the pre-loaded) PDF.
+    4.  Step through each row in the left panel:
+          - Confirm or override the auto-matched DB track
+          - Edit any PDF field values if needed
+          - Press  A = Approve  /  S = Skip  /  N = No match
+    5.  Click "Generate SQL" when done → copy into psql or pgAdmin.
+
+  Keyboard shortcuts (when not typing in a field):
+    ↑ / ↓  or  K / J   – navigate rows
+    A                   – approve current row and advance
+    S                   – skip current row and advance
+    N                   – mark no match
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Track Maintenance Reconciler</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<style>
+/* ── Reset ──────────────────────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;color:#1a1a1a;background:#eaecf0;display:flex;flex-direction:column}
+
+/* ── Config bar (collapsible) ───────────────────────────────────────────── */
+#cfg{background:#0d2136;color:#aac;font-size:11px;padding:4px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+#cfg label{opacity:.7}
+#cfg input{background:transparent;border:none;border-bottom:1px solid #446;color:#cde;font-size:11px;width:220px;outline:none;padding:1px 3px}
+#cfg button{background:rgba(255,255,255,.1);border:1px solid #335;color:#cde;border-radius:3px;padding:2px 9px;font-size:11px;cursor:pointer}
+#cfg button:hover{background:rgba(255,255,255,.2)}
+#cfg-status{margin-left:auto;font-size:10px;opacity:.7}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+#hdr{background:#1a3a5c;color:#fff;padding:7px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+#hdr h1{font-size:14px;font-weight:600;letter-spacing:.3px}
+.hbadge{background:rgba(255,255,255,.16);border-radius:4px;padding:2px 8px;font-size:11px;white-space:nowrap}
+
+/* ── Progress bar ───────────────────────────────────────────────────────── */
+#progbar{height:3px;background:#0d2136;flex-shrink:0}
+#progfill{height:3px;background:#4caf50;width:0;transition:width .25s}
+
+/* ── Toolbar ────────────────────────────────────────────────────────────── */
+#toolbar{background:#fff;border-bottom:1px solid #ddd;padding:7px 14px;display:flex;align-items:center;gap:9px;flex-shrink:0;flex-wrap:wrap}
+input[type=file]{font-size:11px}
+button{padding:4px 12px;border-radius:4px;border:1px solid #bbb;background:#f5f5f5;cursor:pointer;font-size:12px;font-weight:500;transition:filter .1s}
+button.primary{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+button.success{background:#2e7d32;color:#fff;border-color:#2e7d32}
+button:hover{filter:brightness(.91)}
+button:disabled{opacity:.4;cursor:default;filter:none}
+#statbar{margin-left:auto;font-size:11px;color:#666}
+
+/* ── Filter strip ───────────────────────────────────────────────────────── */
+#filterbar{background:#f7f8fa;border-bottom:1px solid #e0e0e0;padding:5px 14px;display:flex;gap:10px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+#filterbar label{font-size:11px;color:#666}
+select.fsel,input[type=search]{font-size:12px;padding:3px 7px;border:1px solid #ccc;border-radius:3px}
+#fcnt{margin-left:auto;font-size:11px;color:#999}
+
+/* ── Body split ─────────────────────────────────────────────────────────── */
+#body{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* ── Left pane: row list ────────────────────────────────────────────────── */
+#list-pane{width:300px;min-width:120px;background:#fff;border-right:none;overflow-y:auto;display:flex;flex-direction:column}
+.lr{padding:6px 9px;cursor:pointer;border-bottom:1px solid #f0f0f0;display:flex;align-items:flex-start;gap:7px;user-select:none}
+.lr:hover{background:#f4f7fb}
+.lr.active{background:#e3edf8;border-left:3px solid #1a3a5c}
+.lr.active .lr-name{color:#1a3a5c;font-weight:600}
+.lr-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.lr-dot.pending{background:#bbb}.lr-dot.approved{background:#4caf50}
+.lr-dot.skipped{background:#ff9800}.lr-dot.nomatch{background:#f44336}
+.lr-dot.new_track{background:#ff6d00}.lr-dot.saved{background:#1565c0}
+.lr-body{flex:1;min-width:0}
+.lr-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lr-sub{font-size:10px;color:#999;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lr-badge{font-size:10px;font-weight:700;padding:1px 5px;border-radius:9px;white-space:nowrap;flex-shrink:0;align-self:center}
+.lr-badge.pending{background:#ebebeb;color:#666}.lr-badge.approved{background:#d4edda;color:#155724}
+.lr-badge.skipped{background:#fff3cd;color:#856404}.lr-badge.nomatch{background:#f8d7da;color:#721c24}
+.lr-badge.new_track{background:#fff3e0;color:#bf360c;border:1px solid #ff6d00}
+.lr-badge.saved{background:#e3f2fd;color:#0d47a1}
+.score-chip{display:inline-block;padding:0 5px;border-radius:9px;font-size:10px;font-weight:700}
+.score-chip.hi{background:#d4edda;color:#155724}.score-chip.me{background:#fff3cd;color:#856404}
+.score-chip.lo{background:#f8d7da;color:#721c24}.score-chip.mn{background:#cce5ff;color:#004085}
+
+/* ── Right pane: detail ─────────────────────────────────────────────────── */
+#detail-pane{width:380px;min-width:200px;overflow-y:auto;padding:13px 15px;display:flex;flex-direction:column;gap:11px;background:#eaecf0}
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+.card{background:#fff;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.09);padding:11px 13px}
+.card h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#999;margin-bottom:8px}
+.card-title{font-size:15px;font-weight:600;color:#1a3a5c;margin-bottom:3px}
+.card-meta{font-size:11px;color:#999}
+
+/* ── Match list ─────────────────────────────────────────────────────────── */
+#match-search{width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;margin-bottom:5px}
+#match-list{max-height:190px;overflow-y:auto;border:1px solid #ddd;border-radius:4px}
+.ml-row{padding:5px 9px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center}
+.ml-row:hover{background:#f0f5ff}
+.ml-row.selected{background:#e3edf8;font-weight:600}
+.ml-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml-score{font-size:10px;color:#aaa;flex-shrink:0;margin-left:7px}
+.ml-sep{padding:3px 9px;font-size:10px;color:#bbb;background:#fafafa;border-bottom:1px solid #f0f0f0;font-style:italic}
+
+/* ── Field grid ─────────────────────────────────────────────────────────── */
+.fgrid{display:grid;grid-template-columns:100px 1fr 1fr;border:1px solid #e0e0e0;border-radius:4px;overflow:hidden}
+.fgrid-hdr{font-size:10px;font-weight:700;color:#999;text-transform:uppercase;padding:4px 7px;background:#f5f5f5;border-bottom:1px solid #e0e0e0}
+.fgrid-label{padding:5px 7px;font-size:11px;font-weight:600;color:#555;border-bottom:1px solid #f0f0f0;border-right:1px solid #f0f0f0;display:flex;align-items:flex-start;gap:4px}
+.fgrid-cell{padding:3px 7px;font-size:12px;border-bottom:1px solid #f0f0f0;border-right:1px solid #f0f0f0;line-height:1.4}
+.fgrid-cell:last-child{border-right:none}
+.fgrid-cell.edit{background:#fffde7}
+.fgrid-cell textarea{width:100%;border:none;background:transparent;resize:none;font-size:12px;font-family:inherit;min-height:34px;outline:none;line-height:1.4}
+.fgrid-cell textarea:focus{background:#fff8e1;border-radius:2px}
+/* diff colours */
+.fgrid-label.same::before{content:"✓ ";color:#388e3c;font-weight:700}
+.fgrid-label.similar::before{content:"≈ ";color:#e65100;font-weight:700}
+.fgrid-label.diff::before{content:"≠ ";color:#c62828;font-weight:700}
+.diff .fgrid-cell.edit textarea{color:#b71c1c;font-weight:500}
+.diff .fgrid-cell:last-child{color:#1b5e20;font-weight:500}
+.similar .fgrid-cell.edit textarea{color:#7f4f00}
+.similar .fgrid-cell:last-child{color:#3e6b4f}
+.same .fgrid-cell:last-child{color:#bbb}
+
+/* ── Action bar ─────────────────────────────────────────────────────────── */
+#action-bar{background:#fff;border-top:2px solid #e0e0e0;padding:8px 14px;display:none;flex-shrink:0;gap:8px;align-items:center}
+.row-info{font-size:11px;color:#999;margin-right:auto}
+.btn-nav{padding:4px 10px;font-size:15px}
+.btn-approve{background:#2e7d32;color:#fff;border-color:#2e7d32;font-size:13px;padding:6px 18px}
+.btn-skip{background:#e65100;color:#fff;border-color:#e65100}
+.btn-nomatch{background:#b71c1c;color:#fff;border-color:#b71c1c}
+.btn-reset{background:#5c6bc0;color:#fff;border-color:#5c6bc0}
+kbd{font-size:10px;background:#f0f0f0;border:1px solid #ccc;border-radius:3px;padding:0 4px;font-family:monospace;color:#555}
+
+/* ── SQL modal ──────────────────────────────────────────────────────────── */
+#sql-modal{display:none;position:fixed;inset:0;z-index:10000;background:rgba(10,15,30,.75);align-items:stretch;justify-content:center;padding:18px}
+#sql-modal.open{display:flex}
+#sql-modal-inner{background:#fff;border-radius:8px;display:flex;flex-direction:column;width:100%;max-width:1100px;max-height:100%;box-shadow:0 8px 40px rgba(0,0,0,.45);overflow:hidden}
+#sql-modal-header{background:#1a3a5c;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+#sql-modal-header h2{font-size:14px;font-weight:700;margin:0;flex:1}
+#sql-modal-header .sql-summary{font-size:11px;opacity:.75}
+#sql-modal-header button{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3);padding:4px 13px;border-radius:3px;cursor:pointer;font-size:12px}
+#sql-modal-header button:hover{background:rgba(255,255,255,.32)}
+#sql-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px;min-height:0}
+.sql-block{border-radius:6px;overflow:hidden;border:2px solid #ccc}
+.sql-block.block-version{border-color:#1565c0}
+.sql-block.block-newtrack{border-color:#e65100}
+.sql-block.block-newgeom{border-color:#6a1b9a}
+.sql-block.block-meta{border-color:#666}
+.sql-block-hdr{padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+.sql-block.block-version .sql-block-hdr{background:#e3f2fd;color:#0d47a1}
+.sql-block.block-newtrack .sql-block-hdr{background:#fff3e0;color:#bf360c}
+.sql-block.block-newgeom  .sql-block-hdr{background:#f3e5f5;color:#6a1b9a}
+.sql-block.block-meta     .sql-block-hdr{background:#f5f5f5;color:#333}
+.sql-block-hdr .tag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;text-transform:none}
+.block-version .tag{background:#1565c0;color:#fff}
+.block-newtrack .tag{background:#e65100;color:#fff}
+.block-newgeom  .tag{background:#6a1b9a;color:#fff}
+.block-meta     .tag{background:#555;color:#fff}
+.sql-block pre{background:#1e1e2e;color:#cdd6f4;font:11.5px/1.6 'Courier New',monospace;padding:12px 14px;margin:0;overflow-x:auto;white-space:pre}
+#sql-modal-footer{background:#f5f5f5;border-top:1px solid #ddd;padding:9px 16px;display:flex;gap:8px;align-items:center;flex-shrink:0}
+.sql-actions{display:none} /* legacy, hidden */
+
+/* ── Empty / intro ──────────────────────────────────────────────────────── */
+.intro{color:#aaa;font-size:13px;text-align:center;margin:50px auto;line-height:1.8;max-width:450px}
+.intro strong{color:#555}
+.intro kbd{font-size:12px}
+
+/* ── Loading overlay ────────────────────────────────────────────────────── */
+#loading{position:fixed;inset:0;background:rgba(255,255,255,.82);display:none;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#1a3a5c;z-index:9999;gap:10px}
+.spinner{width:22px;height:22px;border:3px solid #cde;border-top-color:#1a3a5c;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Map pane (right, full-height) ──────────────────────────────────────── */
+#map-pane{flex:1;min-width:200px;display:flex;flex-direction:column;background:#1a3a5c;overflow:hidden}
+#map-pane-header{background:#1a3a5c;color:#fff;padding:6px 12px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:10px;flex-shrink:0}
+#map-pane-header .geom-indicator{font-size:10px}
+#map-track-label{opacity:.8;font-weight:400}
+#map-container{flex:1;min-height:0}
+.map-toolbar-row{background:#1a3a5c;padding:4px 10px;display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.map-toolbar-row button{padding:2px 9px;font-size:11px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:3px;cursor:pointer}
+.map-toolbar-row button:hover{background:rgba(255,255,255,.28)}
+.map-note{font-size:10px;color:rgba(255,255,255,.55);padding:3px 10px 5px;flex-shrink:0}
+
+/* ── Map card (unused now — map lives in #map-pane) ─────────────────────── */
+.geom-indicator{display:inline-block;padding:2px 7px;border-radius:9px;font-size:10px;font-weight:700}
+.geom-indicator.db{background:#d4edda;color:#155724}
+.geom-indicator.drawn{background:#cce5ff;color:#004085}
+.geom-indicator.none{background:#f8d7da;color:#721c24}
+
+/* ── Drag handles ───────────────────────────────────────────────────────── */
+.drag-handle{width:5px;background:#d0d5dd;cursor:col-resize;flex-shrink:0;transition:background .15s}
+.drag-handle:hover,.drag-handle.dragging{background:#1a3a5c}
+
+/* ── Date-text helper rows ──────────────────────────────────────────────── */
+.date-helper{background:#fffde7;border:1px solid #f0e68c;border-radius:4px;padding:6px 9px;margin-top:4px;font-size:11px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.date-helper label{font-weight:600;color:#7f4f00;min-width:90px}
+.date-helper input{flex:1;min-width:120px;padding:3px 6px;border:1px solid #ccc;border-radius:3px;font-size:11px}
+.date-helper .parsed{color:#2e7d32;font-size:10px;font-style:italic}
+.date-helper .parse-err{color:#c62828;font-size:10px;font-style:italic}
+.date-helper .epoch{color:#666;font-size:10px;font-family:monospace;margin-left:4px}
+
+/* ── New track panel ────────────────────────────────────────────────────── */
+.nt-card{background:#fff3e0;border:2px solid #ff6d00;border-radius:6px;padding:11px 13px}
+.nt-card h3{color:#bf360c;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}
+.nt-saved-card{background:#e3f2fd;border:2px solid #1565c0;border-radius:6px;padding:11px 13px}
+.nt-saved-card h3{color:#0d47a1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}
+.nt-grid{display:grid;grid-template-columns:110px 1fr;gap:5px 8px;align-items:center;margin-bottom:6px}
+.nt-grid label{font-size:11px;font-weight:600;color:#555}
+.nt-grid input,.nt-grid select{padding:4px 7px;border:1px solid #ccc;border-radius:3px;font-size:12px;width:100%}
+.nt-warn{background:#ffecb3;border-radius:3px;padding:5px 8px;font-size:11px;color:#7f4f00;margin:5px 0}
+.nt-ok{background:#e8f5e9;border-radius:3px;padding:5px 8px;font-size:11px;color:#2e7d32;font-weight:600;margin:5px 0}
+.btn-new-track{background:#ff6d00;color:#fff;border-color:#e65100;font-size:12px;padding:5px 14px}
+.btn-new-track:disabled{opacity:.4}
+.btn-save-db{background:#1565c0;color:#fff;border-color:#0d47a1;font-size:12px;padding:5px 14px}
+/* Leaflet.Draw guide line (ghost line while drawing) → yellow */
+.leaflet-draw-guide-dash{border-color:#ffe600 !important}
+.leaflet-draw-tooltip{background:#333;color:#ffe600;border-color:#ffe600}
+</style>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+</head>
+<body>
+
+<!-- Config bar -->
+<div id="cfg">
+  <label>API:</label>
+  <input id="api-url" value="http://localhost:5050" onchange="API=this.value.replace(/\/$/,'')">
+  <button onclick="testAPI()">Test connection</button>
+  <span id="cfg-status">—</span>
+</div>
+
+<!-- Header -->
+<div id="hdr">
+  <h1>Track Maintenance Reconciler</h1>
+  <span class="hbadge" id="h-pdf">No PDF loaded</span>
+  <span class="hbadge" id="h-db">DB —</span>
+  <span class="hbadge" id="h-prog">0 / 0</span>
+</div>
+<div id="progbar"><div id="progfill"></div></div>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <label style="font-size:11px;font-weight:600;color:#555">PDF:</label>
+  <input type="file" id="pdf-input" accept=".pdf">
+  <button class="primary" onclick="uploadPdf()">Load &amp; Auto-match</button>
+  <span style="color:#ddd">|</span>
+  <button onclick="jumpNextPending()">Next pending ↓</button>
+  <span style="color:#ddd">|</span>
+  <button class="success" id="btn-sql" onclick="genSQL()" disabled>
+    Generate SQL &nbsp;(<span id="app-count">0</span>)
+  </button>
+  <span id="statbar"></span>
+</div>
+
+<!-- Filter strip -->
+<div id="filterbar">
+  <label>Show:</label>
+  <select class="fsel" id="f-status" onchange="applyFilter()">
+    <option value="all">All rows</option>
+    <option value="pending" selected>Pending only</option>
+    <option value="approved">Approved</option>
+    <option value="new_track">New track</option>
+    <option value="saved">Saved to DB</option>
+    <option value="skipped">Skipped</option>
+    <option value="nomatch">No match</option>
+  </select>
+  <label style="margin-left:8px">Confidence:</label>
+  <select class="fsel" id="f-score" onchange="applyFilter()">
+    <option value="all">Any</option>
+    <option value="lo">Needs review (&lt;60)</option>
+    <option value="me">Medium (60–79)</option>
+    <option value="hi">High (≥80)</option>
+  </select>
+  <label style="margin-left:8px">Search:</label>
+  <input type="search" id="f-search" placeholder="track name…" oninput="applyFilter()" style="width:150px">
+  <span id="fcnt"></span>
+</div>
+
+<!-- Main split -->
+<div id="body">
+  <div id="list-pane"></div>
+  <div class="drag-handle" id="dh-1"></div>
+  <div id="detail-pane">
+    <!-- intro shown before any PDF is loaded -->
+    <div id="detail-intro" class="intro">
+      <strong>How to use</strong><br>
+      1. Make sure the backend is running:<br>
+      <code style="font-size:11px;background:#f0f0f0;padding:2px 5px;border-radius:3px">
+        python3 scripts/maintenance_matcher.py --pdf &lt;schedule.pdf&gt;
+      </code><br><br>
+      2. Upload a PDF (or it may auto-load from the backend)<br>
+      3. Step through each row — confirm the match, edit values if needed<br>
+      4. <kbd>A</kbd> Approve &nbsp; <kbd>S</kbd> Skip &nbsp; <kbd>N</kbd> No match &nbsp; <kbd>↑</kbd><kbd>↓</kbd> Navigate<br>
+      5. <strong>Generate SQL</strong> when done
+    </div>
+    <!-- dynamic header/match sections -->
+    <div id="detail-top"></div>
+    <!-- dynamic fields section -->
+    <div id="detail-fields"></div>
+  </div>
+  <div class="drag-handle" id="dh-2"></div>
+  <!-- Map pane — full height, persistent Leaflet instance -->
+  <div id="map-pane">
+    <div id="map-pane-header">
+      <span>Geometry</span>
+      <span id="geom-indicator" class="geom-indicator none">No geometry</span>
+      <span id="map-track-label"></span>
+    </div>
+    <div class="map-toolbar-row">
+      <button onclick="clearDrawnGeom()">✕ Clear drawn geometry</button>
+      <span class="map-note" style="padding:0">Draw tool in map → replaces DB geometry in SQL</span>
+    </div>
+    <div id="map-container"></div>
+  </div>
+</div>
+
+<!-- Action bar -->
+<div id="action-bar">
+  <span class="row-info" id="row-info">—</span>
+  <button class="btn-nav" onclick="navigate(-1)" title="Previous ↑">↑</button>
+  <button class="btn-nav" onclick="navigate(1)"  title="Next ↓">↓</button>
+  <button class="btn-reset"   onclick="doStatus('pending')">Reset</button>
+  <button class="btn-nomatch" onclick="doStatus('nomatch')"><kbd>N</kbd> No match</button>
+  <button class="btn-skip"    onclick="doStatus('skipped')"><kbd>S</kbd> Skip →</button>
+  <button class="btn-approve" onclick="doStatus('approved')"><kbd>A</kbd> ✓ Approve</button>
+</div>
+
+<!-- SQL modal -->
+<div id="sql-modal" role="dialog" aria-modal="true" aria-label="SQL Review">
+  <div id="sql-modal-inner">
+    <div id="sql-modal-header">
+      <h2>SQL Review — check before running</h2>
+      <span id="sql-summary" class="sql-summary"></span>
+      <button onclick="copySqlAll()">📋 Copy all</button>
+      <button onclick="document.getElementById('sql-modal').classList.remove('open')" style="background:#c62828">&#x2715; Close</button>
+    </div>
+    <div id="sql-body"></div>
+    <div id="sql-modal-footer">
+      <button onclick="copySqlAll()" class="success">📋 Copy all SQL to clipboard</button>
+      <button onclick="document.getElementById('sql-modal').classList.remove('open')">Close</button>
+      <span id="sql-note" style="font-size:11px;color:#888;margin-left:8px"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loading"><div class="spinner"></div> Loading…</div>
+
+<script>
+// ── Configuration ──────────────────────────────────────────────────────────
+let API = document.getElementById('api-url').value.replace(/\/$/, '') || '';
+
+// ── State ──────────────────────────────────────────────────────────────────
+let ALL  = [];   // all match objects from backend
+let DB   = [];   // all db tracks
+let VIS  = [];   // filtered indices into ALL
+let CUR  = -1;   // currently selected index
+const STORE = 'reconciler_v2';
+
+const FIELDS  = ['condition','lastcut','importance','custodian','nextcut'];
+const FLABELS = {condition:'Condition',lastcut:'Last cut',importance:'Importance',custodian:'Custodian',nextcut:'Next cut'};
+// ── Map state ───────────────────────────────────────────────────────
+  let _map           = null;   // Leaflet map instance
+  let _mapTrackLayer  = null;  // layer for the selected DB track geometry
+  let _mapDrawnLayer  = null;  // layer for user-drawn geometry
+  let _mapDrawCtrl    = null;  // Leaflet.Draw control
+  let _mapRowIdx      = -1;    // which row the map is currently showing
+  let _mapPermolatLayer = null; // all permolat tracks context overlay
+// ── API connection test ────────────────────────────────────────────────────
+async function testAPI() {
+  try {
+    const r = await fetch(API + '/api/state', {signal: AbortSignal.timeout(3000)});
+    if (r.ok) {
+      document.getElementById('cfg-status').textContent = '✓ Connected';
+      return true;
+    }
+  } catch(e) {}
+  document.getElementById('cfg-status').textContent = '✗ Cannot reach backend';
+  return false;
+}
+
+// ── Upload PDF ─────────────────────────────────────────────────────────────
+async function uploadPdf() {
+  const inp = document.getElementById('pdf-input');
+  if (!inp.files.length) { alert('Select a PDF first.'); return; }
+  const file = inp.files[0];
+  status('Parsing PDF and auto-matching against DB…');
+  spin(true);
+  const fd = new FormData();
+  fd.append('pdf', file, file.name);
+  try {
+    const r = await fetch(API + '/api/upload_pdf', {method:'POST', body:fd});
+    const d = await r.json();
+    if (d.error) { alert('Error: ' + d.error + '\n' + (d.trace||'')); return; }
+    load(d.matches, d.db_tracks, file.name);
+  } catch(e) {
+    alert('Could not reach backend at ' + API + '\n\nMake sure maintenance_matcher.py is running.\n\n' + e);
+  } finally { spin(false); }
+}
+
+function load(matches, dbTracks, pdfName) {
+  ALL = matches;
+  DB  = dbTracks;
+  restoreLocal(pdfName);
+  document.getElementById('h-pdf').textContent = pdfName || 'loaded';
+  document.getElementById('h-db').textContent  = 'DB: ' + DB.length;
+  buildList();
+  applyFilter();
+  updateProgress();
+  document.getElementById('action-bar').style.display = 'flex';
+  const first = VIS.length ? VIS[0] : (ALL.length ? 0 : -1);
+  if (first >= 0) selectRow(first);
+  status(ALL.length + ' PDF rows · ' + DB.length + ' DB tracks · step through pending rows');
+}
+
+// ── List panel ─────────────────────────────────────────────────────────────
+function buildList() {
+  const pane = document.getElementById('list-pane');
+  pane.innerHTML = '';
+  ALL.forEach((m, i) => {
+    const el = document.createElement('div');
+    el.className  = 'lr';
+    el.dataset.i  = i;
+    el.dataset.st = m.status;
+    el.dataset.sc = m.score;
+    el.dataset.nm = (m.pdf.track||'').toLowerCase();
+    el.innerHTML  = lrHTML(m);
+    el.onclick    = () => selectRow(i);
+    pane.appendChild(el);
+  });
+}
+
+function lrHTML(m) {
+  const db_name  = m.db ? m.db.trackname : '(no match)';
+  const cls      = scCls(m.score, m.manual);
+  const hasDiff  = m.diffs && Object.values(m.diffs).some(d => !d.same);
+  const isNew    = m.status === 'new_track' || m.status === 'saved';
+  const noGeom   = isNew && !(m.edited && m.edited.geom_geojson);
+  const subText  = isNew
+    ? (m.status === 'saved'
+        ? `✓ Saved to DB (id=${m.db?.id})`
+        : `⚠ New track — ${m.edited?.geom_geojson ? 'geometry set' : 'no geometry yet'}`)
+    : `→ ${e(db_name)} <span class="score-chip ${cls}" style="margin-left:4px">${m.manual?'✎':m.score}</span>${hasDiff ? '<span style="color:#c00;font-size:10px;margin-left:3px">Δ</span>' : ''}${m.edited?.geom_geojson ? '<span style="color:#6a1b9a;font-size:10px;margin-left:4px;font-weight:700">✏ geom</span>' : ''}`;
+  return `<div class="lr-dot ${m.status}"></div>
+    <div class="lr-body">
+      <div class="lr-name" title="${e(m.pdf.track)}">${e(m.pdf.track)}</div>
+      <div class="lr-sub">${subText}</div>
+    </div>
+    <span class="lr-badge ${m.status}">${m.status.replace('_',' ')}</span>`;
+}
+
+function refreshListRow(i) {
+  const el = document.querySelector(`.lr[data-i="${i}"]`);
+  if (!el) return;
+  const m = ALL[i];
+  el.dataset.st = m.status;
+  el.innerHTML  = lrHTML(m);
+  el.onclick    = () => selectRow(i);
+  el.className  = 'lr' + (i === CUR ? ' active' : '');
+}
+
+// ── Detail panel ───────────────────────────────────────────────────────────
+function selectRow(i) {
+  if (CUR >= 0) flushEdits(CUR);
+  CUR = i;
+  document.querySelectorAll('#list-pane .lr').forEach(el =>
+    el.classList.toggle('active', parseInt(el.dataset.i) === i));
+  document.querySelector('#list-pane .lr.active')?.scrollIntoView({block:'nearest'});
+  renderDetail(i);
+  updateRowInfo(i);
+  // Load map after DOM settles
+  requestAnimationFrame(() => loadMapForRow(i));
+}
+
+function renderDetail(i) {
+  const m  = ALL[i];
+  const sc = scCls(m.score, m.manual);
+  const isNew   = m.status === 'new_track' || m.status === 'saved';
+  const noMatch = !m.db && m.status !== 'new_track' && m.status !== 'saved';
+
+  document.getElementById('detail-intro').style.display = 'none';
+  document.getElementById('detail-top').innerHTML = `
+    <div class="card">
+      <h3>Row ${i+1} of ${ALL.length}</h3>
+      <div class="card-title">${e(m.pdf.track)}</div>
+      <div class="card-meta">
+        Status: <strong>${m.status.replace('_',' ')}</strong> &nbsp;·&nbsp;
+        Match confidence: <span class="score-chip ${sc}">${m.manual ? 'manual override' : m.score + '%'}</span>
+        ${noMatch ? '<span style="color:#c62828;font-weight:700;margin-left:8px">⚠ No DB match</span>' : ''}
+      </div>
+    </div>
+    ${ isNew ? buildNewTrackCard(m, i) : `
+    <div class="card">
+      <h3>Matched DB track &nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:#bbb">Change if the auto-match is wrong</span>
+        &nbsp;<button class="btn-new-track" onclick="doStatus('new_track')" title="Flag this PDF row as a new track not in the database">➕ New track</button>
+      </h3>
+      <input type="search" id="match-search" placeholder="Search DB tracks…" oninput="filterML(this.value)">
+      <div id="match-list">${buildML(m, i)}</div>
+    </div>`}`;
+
+  document.getElementById('map-track-label').innerHTML =
+    m.db ? ` — <strong>${e(m.db.trackname)}</strong>`
+         : '<em style="opacity:.6"> — no DB track linked</em>';
+  _updateGeomIndicator();
+
+  document.getElementById('detail-fields').innerHTML = isNew ? '' : `
+    <div class="card">
+      <h3>Fields &nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:#bbb">Left column (PDF) is editable — correct before approving</span></h3>
+      ${buildFields(m, i)}
+    </div>`;
+}
+
+// ── New track card ───────────────────────────────────────────────────────────
+function buildNewTrackCard(m, rowIdx) {
+  const ed     = m.edited || {};
+  const saved  = m.status === 'saved';
+  const hasGeom = !!(ed.geom_geojson);
+
+  if (saved) {
+    return `<div class="nt-saved-card">
+      <h3>✓ Saved to DB</h3>
+      <div class="nt-ok">New track created: <strong>${e(ed.nt_trackname || m.pdf.track)}</strong> — DB id: ${m.db?.id}</div>
+      <div style="font-size:11px;color:#555;margin-top:6px">This track has been saved directly to permolat_tracks_prod and permolat_track_versions.</div>
+    </div>`;
+  }
+
+  const lcText = ed.lastcut_text || ed.lastcut || '';
+  const ncText = ed.nextcut_text || ed.nextcut || '';
+  const lcP = parseDate(lcText);
+  const ncP = parseDate(ncText);
+  const lcEpoch = parseDateToEpoch(lcText);
+  const ncEpoch = parseDateToEpoch(ncText);
+
+  return `<div class="nt-card">
+    <h3>➕ New Track — not in database</h3>
+    ${ !hasGeom
+        ? `<div class="nt-warn">✏ Draw a new geometry in the map using the polyline tool, <strong>or click any existing red dashed track</strong> in the map to adopt its geometry.</div>`
+        : `<div class="nt-ok">✓ Geometry set — fill in metadata below then click Save to DB.</div>` }
+    <div class="nt-grid">
+      <label>Track name:</label>
+      <input data-dh="nt_trackname" type="text" value="${e(ed.nt_trackname ?? m.pdf.track)}" placeholder="Track name">
+      <label>Track type:</label>
+      <input data-dh="nt_tracktype" type="text" value="${e(ed.nt_tracktype||'')}" placeholder="e.g. Tramping track">
+      <label>Layer name:</label>
+      <input data-dh="nt_layer_name" type="text" value="${e(ed.nt_layer_name||'permolat_tracks')}">
+      <label>Importance:</label>
+      <input data-dh="nt_importance" type="text" value="${e(ed.nt_importance || m.pdf.importance || '')}" placeholder="e.g. High">
+      <label>Custodian:</label>
+      <input data-dh="nt_custodian" type="text" value="${e(ed.nt_custodian || m.pdf.custodian || '')}" placeholder="Person responsible">
+      <label>Condition:</label>
+      <input data-dh="nt_condition" type="text" value="${e(ed.nt_condition || m.pdf.condition || '')}" placeholder="Current condition">
+    </div>
+    <div class="date-helper">
+      <label>Last cut (text):</label>
+      <input id="dh-nt-lastcut" data-dh="lastcut_text" type="text" placeholder="e.g. Jan 2025"
+        value="${e(lcText)}"
+        oninput="updateDateFeedback(this,document.getElementById('dh-nt-lc-fb'))">
+      <span id="dh-nt-lc-fb" class="${lcP.ok?'parsed':(lcText?'parse-err':'')}">${lcP.display}</span>
+      ${lcEpoch !== null ? `<span class="epoch">→ ${lcEpoch}</span>` : ''}
+    </div>
+    <div class="date-helper">
+      <label>Next cut (text):</label>
+      <input id="dh-nt-nextcut" data-dh="nextcut_text" type="text" placeholder="e.g. Mar 2026"
+        value="${e(ncText)}"
+        oninput="updateDateFeedback(this,document.getElementById('dh-nt-nc-fb'))">
+      <span id="dh-nt-nc-fb" class="${ncP.ok?'parsed':(ncText?'parse-err':'')}">${ncP.display}</span>
+      ${ncEpoch !== null ? `<span class="epoch">→ ${ncEpoch}</span>` : ''}
+    </div>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <button class="btn-save-db" onclick="saveNewTrack(${rowIdx})" ${!hasGeom?'disabled title="Draw geometry first"':''}>
+        ☁ Save to DB
+      </button>
+      <button onclick="doStatus('nomatch')" style="font-size:11px">Cancel / No match</button>
+      <span style="font-size:10px;color:#999">Saves directly to permolat_tracks_prod on Acheron</span>
+    </div>
+  </div>`;
+}
+
+async function saveNewTrack(rowIdx) {
+  flushEdits(rowIdx);
+  const m    = ALL[rowIdx];
+  const ed   = m.edited || {};
+  const geom = ed.geom_geojson;
+  if (!geom) { alert('Draw the track geometry in the map first.'); return; }
+  const trackname = (ed.nt_trackname || m.pdf.track || '').trim();
+  if (!trackname) { alert('Track name is required.'); return; }
+
+  spin(true);
+  try {
+    const r = await fetch(API + '/api/create_track', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        row_idx: rowIdx,
+        geom_geojson: geom,
+        props: {
+          trackname,
+          tracktype:   ed.nt_tracktype   || null,
+          layer_name:  ed.nt_layer_name  || 'permolat_tracks',
+          importance:  ed.nt_importance  || null,
+          custodian:   ed.nt_custodian   || null,
+          currentcon:  ed.nt_condition   || null,
+          lastcut_text: ed.lastcut_text  || '',
+          nextcut_text: ed.nextcut_text  || '',
+        },
+      }),
+    });
+    const d = await r.json();
+    if (d.error) { alert('Save failed: ' + d.error + '\n' + (d.trace||'')); return; }
+    ALL[rowIdx].status = 'saved';
+    ALL[rowIdx].db     = { id: d.id, trackname };
+    refreshListRow(rowIdx);
+    updateProgress();
+    saveLocal();
+    renderDetail(rowIdx);
+    status(`✓ New track saved: "${trackname}" (id=${d.id}, version_id=${d.version_id})`);
+  } finally { spin(false); }
+}
+
+// ── parseDateToEpoch (JS, mirrors Python) ───────────────────────────────────
+function parseDateToEpoch(txt) {
+  if (!txt || !txt.trim()) return null;
+  const t = txt.trim();
+  const M = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  const epoch = (y, mo) => Math.floor(Date.UTC(y, mo-1, 1) / 1000);
+  let m;
+  m = t.match(/^([A-Za-z]{3,9})\s+(\d{4})$/);
+  if (m) { const mo=M[m[1].toLowerCase().slice(0,3)]; if(mo) return epoch(+m[2],mo); }
+  m = t.match(/^([A-Za-z]{3,9})\s+(\d{2})$/);
+  if (m) { const mo=M[m[1].toLowerCase().slice(0,3)]; if(mo) return epoch(2000+parseInt(m[2]),mo); }
+  m = t.match(/^(\d{4})-(\d{1,2})$/);
+  if (m) return epoch(+m[1],+m[2]);
+  m = t.match(/^(\d{1,2})\/(\d{4})$/);
+  if (m) return epoch(+m[2],+m[1]);
+  m = t.match(/^(\d{4})$/);
+  if (m) return epoch(+m[1],1);
+  return null;
+}
+
+function buildML(m, rowIdx) {
+  const cids  = new Set(m.candidates.map(c => c.id));
+  const dbArr = Array.isArray(DB) ? DB : [];
+  let html = (m.candidates || []).map(c => {
+    const sel = m.db && m.db.id === c.id ? 'selected' : '';
+    return `<div class="ml-row ${sel}" onclick="rematch(${rowIdx},${c.id})">
+      <span class="ml-name">${e(c.name||c.trackname)}</span>
+      <span class="ml-score">${c.score}%</span></div>`;
+  }).join('');
+  // divider before full list
+  html += `<div class="ml-sep">── all ${dbArr.length} tracks ──</div>`;
+  html += dbArr.filter(t => !cids.has(t.id)).map(t => {
+    const sel = m.db && m.db.id === t.id && !cids.has(t.id) ? 'selected' : '';
+    return `<div class="ml-row ${sel}" onclick="rematch(${rowIdx},${t.id})">
+      <span class="ml-name">${e(t.trackname)}</span></div>`;
+  }).join('');
+  return html;
+}
+
+function filterML(q) {
+  const ql = q.toLowerCase();
+  document.querySelectorAll('#match-list .ml-row').forEach(r => {
+    r.style.display = r.querySelector('.ml-name').textContent.toLowerCase().includes(ql) ? '' : 'none';
+  });
+  document.querySelectorAll('#match-list .ml-sep').forEach(s => s.style.display = q ? 'none' : '');
+}
+
+function buildFields(m, rowIdx) {
+  const edited = m.edited || {};
+  let h = `<div class="fgrid">
+    <div class="fgrid-hdr">Field</div>
+    <div class="fgrid-hdr">PDF value (editable)</div>
+    <div class="fgrid-hdr">Current DB value</div>`;
+  FIELDS.forEach(f => {
+    const d   = m.diffs?.[f] || {};
+    const pv  = edited[f] ?? (d.pdf || '');
+    const dv  = d.db  || '';
+    const cls = d.same ? 'same' : d.similar ? 'similar' : 'diff';
+    h += `
+      <div class="fgrid-label ${cls}">${FLABELS[f]}</div>
+      <div class="fgrid-cell edit ${cls}"><textarea data-f="${f}" rows="2">${e(pv)}</textarea></div>
+      <div class="fgrid-cell ${cls}">${e(dv)}</div>`;
+  });
+  h += '</div>';
+
+  const lcText  = edited.lastcut_text  ?? edited.lastcut  ?? '';
+  const ncText  = edited.nextcut_text  ?? edited.nextcut  ?? '';
+  const lcParsed = parseDate(lcText);
+  const ncParsed = parseDate(ncText);
+  const lcEpoch  = parseDateToEpoch(lcText);
+  const ncEpoch  = parseDateToEpoch(ncText);
+
+  h += `
+  <div class="date-helper">
+    <label>Last cut (text):</label>
+    <input id="dh-lastcut" data-dh="lastcut_text" type="text" placeholder="e.g. Jan 2025 or Oct 24"
+      value="${e(lcText)}"
+      oninput="updateDateFeedback(this, document.getElementById('dh-lastcut-fb'))">
+    <span id="dh-lastcut-fb" class="${lcParsed.ok ? 'parsed' : (lcText ? 'parse-err' : '')}">${lcParsed.display}</span>
+    ${lcEpoch !== null ? `<span class="epoch">→ epoch: ${lcEpoch}</span>` : ''}
+  </div>
+  <div class="date-helper">
+    <label>Next cut (text):</label>
+    <input id="dh-nextcut" data-dh="nextcut_text" type="text" placeholder="e.g. Mar 2026"
+      value="${e(ncText)}"
+      oninput="updateDateFeedback(this, document.getElementById('dh-nextcut-fb'))">
+    <span id="dh-nextcut-fb" class="${ncParsed.ok ? 'parsed' : (ncText ? 'parse-err' : '')}">${ncParsed.display}</span>
+    ${ncEpoch !== null ? `<span class="epoch">→ epoch: ${ncEpoch}</span>` : ''}
+  </div>`;
+
+  return h;
+}
+
+// ── Map functions ─────────────────────────────────────────────────────────────
+const LINZ_KEY      = '20b10a680c3742798647ec56775918a4';
+const FEATURESERVER = 'https://featureserver2.wilsonenv.nz/';
+
+function initMap() {
+  if (_map) return;
+  _map = L.map('map-container', { center: [-43.5, 171.5], zoom: 8 });
+
+  // ── Base layers ──
+  const topo50 = L.tileLayer(
+    `https://tiles-cdn.koordinates.com/services;key=${LINZ_KEY}/tiles/v4/layer=50767/EPSG:3857/{z}/{x}/{y}.png`,
+    { attribution: 'Sourced from <a href="https://www.linz.govt.nz">LINZ</a>. Crown Copyright reserved.', maxZoom: 19 }
+  ).addTo(_map);
+
+  const aerial = L.tileLayer(
+    `https://basemaps.linz.govt.nz/v1/tiles/aerial/3857/{z}/{x}/{y}.png?api=${LINZ_KEY}`,
+    { attribution: 'Sourced from <a href="https://www.linz.govt.nz">LINZ</a>. Crown Copyright reserved.', maxZoom: 19 }
+  );
+
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 19,
+  });
+
+  // ── Permolat tracks overlay (GeoJSON from featureserver) ──
+  _mapPermolatLayer = L.geoJSON(null, {
+    style: { color: '#ff0000', weight: 2.5, opacity: 0.8, dashArray: '6 8' },
+    onEachFeature: (feature, layer) => {
+      layer.on('click', e => {
+        L.DomEvent.stopPropagation(e);
+        _pickExistingGeom(feature, layer);
+      });
+      const nm = feature.properties && (feature.properties.trackname || feature.properties.name || '');
+      if (nm) layer.bindTooltip(nm, { sticky: true, direction: 'top', opacity: 0.85 });
+    },
+  }).addTo(_map);
+
+  // Load all tracks (lightweight — only geometries needed for context)
+  fetch(FEATURESERVER + 'collections/public.permolat_tracks_prod/items.json' +
+        '?limit=1000&properties=id,trackname,geom&filter=current_version=true')
+    .then(r => r.ok ? r.json() : null)
+    .then(fc => { if (fc) _mapPermolatLayer.addData(fc); })
+    .catch(() => {});
+
+  // ── Layer control ──
+  L.control.layers(
+    { 'Topo50 (LINZ)': topo50, 'Aerial (LINZ)': aerial, 'OSM': osm },
+    { 'Permolat tracks': _mapPermolatLayer }
+  ).addTo(_map);
+
+  // ── Draw control ──
+  const drawnItems = new L.FeatureGroup();
+  _map.addLayer(drawnItems);
+  _mapDrawnLayer = drawnItems;   // set BEFORE Draw init so clearLayers() always works
+  if (window.L && L.Control && L.Control.Draw) {
+    _mapDrawCtrl = new L.Control.Draw({
+      edit: { featureGroup: drawnItems, remove: true },
+      draw: {
+        polyline: { shapeOptions: { color: '#ffe600', weight: 4, opacity: 1 }, guidelineDistance: 20 },
+        polygon: false, rectangle: false, circle: false, circlemarker: false, marker: false,
+      },
+    });
+    _map.addControl(_mapDrawCtrl);
+  }
+
+  _map.on(L.Draw.Event.CREATED, ev => {
+    _mapDrawnLayer.clearLayers();
+    ev.layer.setStyle && ev.layer.setStyle({ color: '#ffe600', weight: 4, opacity: 1 });
+    _mapDrawnLayer.addLayer(ev.layer);
+    _saveGeom(JSON.stringify(ev.layer.toGeoJSON().geometry));
+    _updateGeomIndicator();
+    if (CUR >= 0) refreshListRow(CUR);
+    // Re-render detail so "Save to DB" button becomes enabled
+    if (CUR >= 0 && (ALL[CUR].status === 'new_track' || ALL[CUR].status === 'saved'))
+      renderDetail(CUR);
+  });
+  _map.on(L.Draw.Event.DELETED, () => {
+    _saveGeom(null);
+    _updateGeomIndicator();
+    if (CUR >= 0) refreshListRow(CUR);
+    if (CUR >= 0 && (ALL[CUR].status === 'new_track' || ALL[CUR].status === 'saved'))
+      renderDetail(CUR);
+  });
+}
+
+// ── Click an existing overlay track to adopt its geometry / rematch ──────────
+function _pickExistingGeom(feature, layer) {
+  if (CUR < 0) return;
+  const props   = feature.properties || {};
+  const nm      = props.trackname || props.name || 'this track';
+  const dbId    = props.id;
+  const isNew   = ALL[CUR].status === 'new_track' || ALL[CUR].status === 'saved';
+
+  // Popup text differs: new-track rows copy geometry only; regular rows re-match
+  const actionLabel = isNew
+    ? '✓ Use this geometry'
+    : '✓ Re-match row to this track';
+  const hintLabel = isNew
+    ? '<div style="font-size:10px;color:#777;margin-top:4px">Copies the line geometry only</div>'
+    : '<div style="font-size:10px;color:#777;margin-top:4px">Updates the matched track &amp; loads its geometry</div>';
+
+  const div = L.DomUtil.create('div');
+  div.innerHTML = `<div style="font-size:12px;max-width:240px">
+    <strong style="display:block;margin-bottom:4px">${nm}</strong>
+    ${hintLabel}
+    <div style="margin-top:8px;display:flex;gap:6px">
+      <button id="pick-geom-btn" style="background:#1565c0;color:#fff;border:none;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:12px">
+        ${actionLabel}
+      </button>
+      <button id="pick-geom-cancel" style="background:#eee;border:none;padding:4px 8px;border-radius:3px;cursor:pointer;font-size:12px">
+        Cancel
+      </button>
+    </div>
+  </div>`;
+  const popup = L.popup({ closeButton: false }).setContent(div);
+  layer.bindPopup(popup).openPopup();
+
+  setTimeout(() => {
+    const btn    = document.getElementById('pick-geom-btn');
+    const cancel = document.getElementById('pick-geom-cancel');
+    if (!btn) return;
+
+    btn.onclick = () => {
+      layer.closePopup();
+      layer.unbindPopup();
+
+      if (isNew) {
+        // New-track rows: copy geometry into drawn layer only
+        _mapDrawnLayer.clearLayers();
+        const geomStr = JSON.stringify(feature.geometry);
+        L.geoJSON(feature.geometry, { style: { color: '#ffe600', weight: 4, opacity: 1 } })
+          .eachLayer(l => _mapDrawnLayer.addLayer(l));
+        _saveGeom(geomStr);
+        _updateGeomIndicator();
+        renderDetail(CUR);
+        status(`Geometry set from: ${nm}`);
+      } else {
+        // Regular rows: re-match the row to this DB track; geometry comes from DB fetch
+        // Clear any previously drawn custom geometry first
+        _mapDrawnLayer.clearLayers();
+        _saveGeom(null);
+        if (dbId != null) {
+          rematch(CUR, dbId);
+          status(`Re-matched to: ${nm}`);
+        } else {
+          // Overlay feature has no id — fall back to geometry-only copy
+          const geomStr = JSON.stringify(feature.geometry);
+          L.geoJSON(feature.geometry, { style: { color: '#ffe600', weight: 4, opacity: 1 } })
+            .eachLayer(l => _mapDrawnLayer.addLayer(l));
+          _saveGeom(geomStr);
+          _updateGeomIndicator();
+          status(`Geometry set from: ${nm} (no DB id — geometry only)`);
+        }
+      }
+    };
+    if (cancel) cancel.onclick = () => { layer.closePopup(); layer.unbindPopup(); };
+  }, 50);
+}
+
+async function loadMapForRow(rowIdx) {
+  if (!_map) initMap();
+  _mapRowIdx = rowIdx;           // stamp current intent
+  const m = ALL[rowIdx];
+  if (_mapTrackLayer) { _map.removeLayer(_mapTrackLayer); _mapTrackLayer = null; }
+  if (_mapDrawnLayer) _mapDrawnLayer.clearLayers();
+
+  if (m.db && m.db.id != null) {
+    try {
+      const r = await fetch(API + '/api/track_geojson/' + m.db.id);
+      // Stale-check: user may have clicked a different row while we were fetching
+      if (_mapRowIdx !== rowIdx) return;
+      if (r.ok) {
+        const feature = await r.json();
+        if (_mapRowIdx !== rowIdx) return;   // stale check again after second await
+        _mapTrackLayer = L.geoJSON(feature, { style: { color: '#1a3a5c', weight: 3, opacity: 0.85 } }).addTo(_map);
+        const b = _mapTrackLayer.getBounds();
+        if (b.isValid()) _map.fitBounds(b, { padding: [30, 30] });
+      }
+    } catch(_) {}
+  } else {
+    _map.setView([-43.5, 171.5], 8);
+  }
+
+  const savedGeom = m.edited && m.edited.geom_geojson;
+  if (savedGeom && _mapDrawnLayer) {
+    try {
+      L.geoJSON(JSON.parse(savedGeom), { style: { color: '#ffe600', weight: 4, opacity: 1 } })
+        .eachLayer(l => _mapDrawnLayer.addLayer(l));
+    } catch(_) {}
+  }
+  _updateGeomIndicator();
+  if (_map) _map.invalidateSize();
+}
+
+function _updateGeomIndicator() {
+  const el = document.getElementById('geom-indicator');
+  if (!el) return;
+  const m = CUR >= 0 ? ALL[CUR] : null;
+  const geom = m && m.edited && m.edited.geom_geojson;
+  if (geom) {
+    el.className = 'geom-indicator drawn';
+    // Try to detect if it was picked from overlay (multi-coord) vs drawn freehand — just show "custom"
+    el.textContent = '✎ Custom geometry set';
+  } else if (m && m.db) {
+    el.className = 'geom-indicator db';
+    el.textContent = 'Using DB geometry';
+  } else {
+    el.className = 'geom-indicator none';
+    el.textContent = 'No geometry';
+  }
+  // Also refresh the list row so the ✎ geom badge appears immediately
+  if (CUR >= 0) refreshListRow(CUR);
+}
+
+async function _saveGeom(geojsonStr) {
+  if (CUR < 0) return;
+  ALL[CUR].edited = ALL[CUR].edited || {};
+  ALL[CUR].edited.geom_geojson = geojsonStr;
+  await fetch(API + '/api/save_geom', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({row_idx: CUR, geojson: geojsonStr}),
+  }).catch(() => {});
+}
+
+function clearDrawnGeom() {
+  if (_mapDrawnLayer) _mapDrawnLayer.clearLayers();
+  _saveGeom(null);
+  _updateGeomIndicator();
+}
+
+// ── Date helper ────────────────────────────────────────────────────────────────
+function parseDate(txt) {
+  if (!txt || !txt.trim()) return { ok: false, display: '' };
+  const t = txt.trim();
+  const M = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  const fmt = (y, mo) => new Date(Date.UTC(y, mo-1, 1))
+    .toLocaleDateString('en-NZ', {month:'short', year:'numeric', timeZone:'UTC'});
+  let m;
+  // "Jan 2025" / "January 2025"
+  m = t.match(/^([A-Za-z]{3,9})\s+(\d{4})$/);
+  if (m) { const mo = M[m[1].toLowerCase().slice(0,3)]; if (mo) return {ok:true, display: fmt(+m[2],mo)}; }
+  // "Jan 24" / "Oct 24" (2-digit year)
+  m = t.match(/^([A-Za-z]{3,9})\s+(\d{2})$/);
+  if (m) { const mo = M[m[1].toLowerCase().slice(0,3)]; if (mo) return {ok:true, display: fmt(2000+parseInt(m[2]),mo)}; }
+  // "2025-03"
+  m = t.match(/^(\d{4})-(\d{1,2})$/);
+  if (m) return {ok:true, display: fmt(+m[1],+m[2])};
+  // "03/2025"
+  m = t.match(/^(\d{1,2})\/(\d{4})$/);
+  if (m) return {ok:true, display: fmt(+m[2],+m[1])};
+  // bare year "2024"
+  m = t.match(/^(\d{4})$/);
+  if (m) return {ok:true, display: m[1] + ' (year only)'};
+  return {ok: false, display: 'Cannot parse "' + t + '"'};
+}
+
+function updateDateFeedback(inputEl, feedbackEl) {
+  const {ok, display} = parseDate(inputEl.value);
+  feedbackEl.className = ok ? 'parsed' : 'parse-err';
+  feedbackEl.textContent = display;
+}
+
+// ── Rematch ─────────────────────────────────────────────────────────────────────
+async function rematch(rowIdx, dbId) {
+  spin(true);
+  try {
+    const r = await fetch(API + '/api/rematch', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({row_idx: rowIdx, db_id: dbId})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      ALL[rowIdx].db     = d.db;
+      ALL[rowIdx].diffs  = d.diffs;
+      ALL[rowIdx].score  = 100;
+      ALL[rowIdx].manual = true;
+      refreshListRow(rowIdx);
+      if (rowIdx === CUR) {
+        renderDetail(rowIdx);
+        loadMapForRow(rowIdx);
+      }
+    }
+  } finally { spin(false); }
+}
+
+// ── Status actions ─────────────────────────────────────────────────────────
+function flushEdits(i) {
+  const tas = document.querySelectorAll('#detail-pane textarea[data-f]');
+  const dhs = document.querySelectorAll('#detail-pane input[data-dh]');
+  if (!tas.length && !dhs.length) return;
+  if (!ALL[i].edited) ALL[i].edited = {};
+  tas.forEach(ta => ALL[i].edited[ta.dataset.f]  = ta.value);
+  dhs.forEach(dh => ALL[i].edited[dh.dataset.dh] = dh.value);
+}
+
+async function doStatus(st) {
+  if (CUR < 0) return;
+  flushEdits(CUR);
+  ALL[CUR].status = st;
+  await fetch(API + '/api/set_status', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({row_idx: CUR, status: st, edited: ALL[CUR].edited || {}})
+  });
+  refreshListRow(CUR);
+  updateProgress();
+  updateRowInfo(CUR);
+  saveLocal();
+  // Re-render detail to switch between normal / new-track panels
+  renderDetail(CUR);
+  if (st === 'approved' || st === 'skipped') {
+    const n = nextPending(CUR + 1);
+    if (n >= 0) selectRow(n); else status('All rows reconciled! Click Generate SQL.');
+  }
+}
+
+function nextPending(from) {
+  for (let i = from; i < ALL.length; i++) if (ALL[i].status === 'pending') return i;
+  for (let i = 0;    i < from;       i++) if (ALL[i].status === 'pending') return i;
+  return -1;
+}
+
+function jumpNextPending() {
+  const n = nextPending(CUR + 1);
+  if (n >= 0) selectRow(n); else status('All rows reconciled.');
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function navigate(dir) {
+  if (CUR < 0) return;
+  flushEdits(CUR);
+  const pos = VIS.indexOf(CUR);
+  if (pos < 0) return;
+  const np = pos + dir;
+  if (np >= 0 && np < VIS.length) selectRow(VIS[np]);
+}
+
+// ── Filter ─────────────────────────────────────────────────────────────────
+function applyFilter() {
+  if (!ALL.length) return;
+  const st = document.getElementById('f-status').value;
+  const sc = document.getElementById('f-score').value;
+  const q  = document.getElementById('f-search').value.toLowerCase().trim();
+  VIS = [];
+  document.querySelectorAll('#list-pane .lr').forEach(r => {
+    const i  = parseInt(r.dataset.i);
+    const m  = ALL[i];
+    let show = true;
+    if (st !== 'all' && m.status !== st)             show = false;
+    if (sc === 'lo' && m.score >= 60)                 show = false;
+    if (sc === 'me' && (m.score < 60 || m.score >= 80)) show = false;
+    if (sc === 'hi' && m.score < 80)                  show = false;
+    if (q  && !(m.pdf.track||'').toLowerCase().includes(q)) show = false;
+    r.style.display = show ? '' : 'none';
+    if (show) VIS.push(i);
+  });
+  document.getElementById('fcnt').textContent = VIS.length + ' of ' + ALL.length + ' rows';
+}
+
+// ── Progress ───────────────────────────────────────────────────────────────
+function updateProgress() {
+  const total = ALL.length;
+  const done  = ALL.filter(m => m.status !== 'pending').length;
+  const app   = ALL.filter(m => m.status === 'approved').length;
+  const newt  = ALL.filter(m => m.status === 'new_track').length;
+  const saved = ALL.filter(m => m.status === 'saved').length;
+  document.getElementById('progfill').style.width  = total ? (done / total * 100) + '%' : '0';
+  document.getElementById('h-prog').textContent    = done + ' / ' + total + ' done';
+  document.getElementById('app-count').textContent = app + (newt ? ` + ${newt} new` : '') + (saved ? ` + ${saved} saved` : '');
+  document.getElementById('btn-sql').disabled      = (app + newt) === 0;
+}
+
+function updateRowInfo(i) {
+  const pos = VIS.indexOf(i);
+  document.getElementById('row-info').textContent =
+    `Row ${i+1}/${ALL.length}  ·  in view: ${pos+1}/${VIS.length}  ·  ${ALL[i].status}`;
+}
+
+// ── Generate SQL ───────────────────────────────────────────────────────────
+async function genSQL() {
+  if (CUR >= 0) flushEdits(CUR);
+  spin(true);
+  try {
+    // Sync ALL non-pending rows to server — restores state after server restart
+    const rows = ALL.reduce((acc, m, i) => {
+      if (m.status !== 'pending')
+        acc.push({ row_idx: i, status: m.status, edited: m.edited || {}, db_id: m.db?.id ?? null });
+      return acc;
+    }, []);
+    if (rows.length) {
+      await fetch(API + '/api/sync_bulk', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({rows}),
+      }).catch(() => {});
+    }
+
+    const r = await fetch(API + '/api/generate_sql', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+    });
+    const d = await r.json();
+
+    if (!d.sql || d.count === 0) {
+      status('No approved rows to generate SQL for.');
+      return;
+    }
+
+    // ── Download as .sql file ──
+    const ts = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([d.sql], {type: 'text/plain'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `permolat_update_${ts}.sql`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+
+    // ── Also show in review modal ──
+    const body = document.getElementById('sql-body');
+    body.innerHTML = '';
+    (d.blocks || [{type:'meta', label:'SQL', sql: d.sql}]).forEach(b => {
+      const cls = {version:'block-version', new_track:'block-newtrack',
+                   new_geom:'block-newgeom', meta:'block-meta'}[b.type] || 'block-meta';
+      const tag = {version:'VERSION UPDATE', new_track:'NEW TRACK',
+                   new_geom:'NEW GEOMETRY', meta:'INFO'}[b.type] || 'SQL';
+      const div = document.createElement('div');
+      div.className = 'sql-block ' + cls;
+      div.innerHTML = `<div class="sql-block-hdr"><span class="tag">${tag}</span>${esc(b.label||'')}</div><pre>${esc(b.sql)}</pre>`;
+      body.appendChild(div);
+    });
+    document.getElementById('sql-summary').textContent = d.summary || '';
+    document.getElementById('sql-note').textContent    = d.count + ' statement(s)';
+    document.getElementById('sql-modal').classList.add('open');
+    status(`↓ Downloaded ${d.count} statement(s) as permolat_update_${ts}.sql`);
+  } finally { spin(false); }
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function copySqlAll() {
+  if (CUR >= 0) flushEdits(CUR);
+  const rows = ALL.reduce((acc, m, i) => {
+    if (m.status !== 'pending')
+      acc.push({ row_idx: i, status: m.status, edited: m.edited || {}, db_id: m.db?.id ?? null });
+    return acc;
+  }, []);
+  if (rows.length) {
+    await fetch(API + '/api/sync_bulk', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({rows}),
+    }).catch(() => {});
+  }
+  const r = await fetch(API + '/api/generate_sql', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+  });
+  const d = await r.json();
+  await navigator.clipboard.writeText(d.sql);
+  status('SQL copied to clipboard.');
+}
+
+// ── Local state ────────────────────────────────────────────────────────────
+function saveLocal() {
+  try {
+    localStorage.setItem(STORE, JSON.stringify(
+      ALL.map(m => ({
+        t:   m.pdf.track,
+        s:   m.status,
+        e:   m.edited,
+        did: m.db?.id,
+        mn:  m.manual,
+        gg:  m.edited?.geom_geojson || null,
+      }))
+    ));
+  } catch(_) {}
+}
+
+function restoreLocal(pdfName) {
+  try {
+    const raw = localStorage.getItem(STORE);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (!Array.isArray(saved) || saved.length !== ALL.length) return;
+    let n = 0;
+    ALL.forEach((m, i) => {
+      const s = saved[i];
+      if (!s || s.t !== m.pdf.track) return;
+      if (s.s) m.status = s.s;
+      if (s.e) m.edited = s.e;
+      if (s.gg) { m.edited = m.edited || {}; m.edited.geom_geojson = s.gg; }
+      if (s.mn && s.did) {
+        const db = DB.find(t => t.id === s.did);
+        if (db) { m.db = db; m.manual = true; m.score = 100; }
+      }
+      n++;
+    });
+    if (n) status('Restored ' + n + ' rows from previous session.');
+  } catch(_) {}
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────────────────────
+document.addEventListener('keydown', ev => {
+  if (ev.target.tagName === 'TEXTAREA' || ev.target.tagName === 'INPUT') return;
+  if (ev.key === 'ArrowDown' || ev.key === 'j') { ev.preventDefault(); navigate(1);  }
+  if (ev.key === 'ArrowUp'   || ev.key === 'k') { ev.preventDefault(); navigate(-1); }
+  if (ev.key === 'a') doStatus('approved');
+  if (ev.key === 's') doStatus('skipped');
+  if (ev.key === 'n') doStatus('nomatch');
+});
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function e(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function scCls(s, manual) { return manual ? 'mn' : s >= 80 ? 'hi' : s >= 60 ? 'me' : 'lo'; }
+function spin(v) { document.getElementById('loading').style.display = v ? 'flex' : 'none'; }
+function status(msg) { document.getElementById('statbar').textContent = msg; }
+
+// ── Pane resize ────────────────────────────────────────────────────────────
+(function() {
+  function makeDraggable(handle, leftPane, rightPane) {
+    let dragging = false, startX = 0, startLeft = 0, startRight = 0;
+    handle.addEventListener('mousedown', ev => {
+      dragging  = true;
+      startX     = ev.clientX;
+      startLeft  = leftPane.getBoundingClientRect().width;
+      startRight = rightPane.getBoundingClientRect().width;
+      handle.classList.add('dragging');
+      document.body.style.cursor   = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+    document.addEventListener('mousemove', ev => {
+      if (!dragging) return;
+      const dx       = ev.clientX - startX;
+      const newLeft  = Math.max(120, startLeft  + dx);
+      const newRight = Math.max(120, startRight - dx);
+      leftPane.style.width  = newLeft  + 'px';
+      leftPane.style.flex   = 'none';
+      rightPane.style.width = newRight + 'px';
+      rightPane.style.flex  = 'none';
+      if (_map) _map.invalidateSize();
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.body.style.cursor    = '';
+      document.body.style.userSelect = '';
+      if (_map) _map.invalidateSize();
+    });
+  }
+  makeDraggable(
+    document.getElementById('dh-1'),
+    document.getElementById('list-pane'),
+    document.getElementById('detail-pane')
+  );
+  makeDraggable(
+    document.getElementById('dh-2'),
+    document.getElementById('detail-pane'),
+    document.getElementById('map-pane')
+  );
+})();
+
+// ── Auto-load from backend on page open ───────────────────────────────────
+(async () => {
+  try {
+    const r = await fetch(API + '/api/state', {signal: AbortSignal.timeout(2000)});
+    if (!r.ok) return;
+    const d = await r.json();
+    document.getElementById('cfg-status').textContent = '✓ Connected';
+    if (d.matches && d.matches.length) {
+      load(d.matches, d.db_tracks, d.pdf_name || 'pre-loaded');
+    }
+  } catch(_) {
+    document.getElementById('cfg-status').textContent = '✗ Backend not reachable — start it first';
+  }
+})();
+</script>
+</body>
+</html>

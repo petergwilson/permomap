@@ -1209,7 +1209,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
     style: [lightStroke_permolat, darkStroke_permolat],
     });
     pg_public.setMinZoom(6);
-    pg_public.setZIndex(20);
+    pg_public.setZIndex(35);
 
 
     const pg_doc = new VectorLayer({
@@ -1224,7 +1224,7 @@ loginSubmitButton.addEventListener("click", async(event) =>{
         style: [lightStroke_doc, darkStroke_doc],
         });
     pg_doc.setMinZoom(8);
-    pg_doc.setZIndex(30);
+    pg_doc.setZIndex(20);
     
     
     /*Global variables - not ideal, but needed for now
@@ -3145,6 +3145,15 @@ document.addEventListener('DOMContentLoaded', function () {
                         flexContainer.style.borderBottom = '2px solid #FFD700';
                         flexContainer.style.paddingBottom = '12px';
                         flexContainer.style.marginBottom = '12px';
+                    }
+
+                    // Add DOC co-maintenance warning badge after custodian field
+                    if (key === 'custodian' && properties[key] && /doc/i.test(properties[key]) && properties['layer_name'] === 'permolat_tracks') {
+                        const docBadge = document.createElement('div');
+                        docBadge.style.cssText = 'display: flex; align-items: center; gap: 8px; margin: 6px 0 10px 0; padding: 7px 10px; background: #fff8e1; border: 1px solid #f9a825; border-radius: 6px; font-size: 11px; color: #5d4037;';
+                        docBadge.innerHTML = '<span style="font-size:15px;">⚠️</span><span><strong>DOC also maintains this track.</strong> Both Permolat and DOC records may exist on the map. The Permolat record is shown here.</span>';
+                        docBadge.title = 'This track has a DOC custodian — a DOC layer track may overlap with this Permolat record';
+                        editorDiv.appendChild(docBadge);
                     }
                     
                     // Handle horizontal layout for importance + date fields
