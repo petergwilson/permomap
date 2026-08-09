@@ -1,0 +1,26 @@
+name: Mirror to Permolat Trust
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: permolat-trust-nz
+        env:
+          GH_TOKEN: ${{ secrets.TRUST_REPO_TOKEN }}
+        run: |
+          git clone --mirror \
+            https://x-access-token:${GH_TOKEN}@github.com/YOUR-USER/YOUR-REPO.git \
+            repo.git
+
+          cd repo.git
+
+          git push trust main \
+            https://x-access-token:${GH_TOKEN}@github.com/Permolat-Trust-NZ/YOUR-REPO.git
