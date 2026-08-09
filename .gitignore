@@ -10,6 +10,7 @@ backups/
 # Environment files with secrets
 .env
 .env.deploy
+OPERATIONS.md
 
 # Session store
 sessions/
