@@ -14,13 +14,13 @@ jobs:
     steps:
       - name: permolat-trust-nz
         env:
-          GH_TOKEN: ${{ secrets.TRUST_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.PERMOLAT_TRUST_MIRROR_TOKEN }}
         run: |
           git clone --mirror \
-            https://x-access-token:${GH_TOKEN}@github.com/YOUR-USER/YOUR-REPO.git \
+            https://x-access-token:${GH_TOKEN}@github.com/petergwilson/permomap.git \
             repo.git
 
           cd repo.git
 
           git push trust main \
-            https://x-access-token:${GH_TOKEN}@github.com/Permolat-Trust-NZ/YOUR-REPO.git
+            https://x-access-token:${GH_TOKEN}@github.com/Permolat-Trust-NZ/permomap.git
