@@ -6,21 +6,27 @@ on:
       - main
     tags:
       - '*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   mirror:
     runs-on: ubuntu-latest
 
     steps:
-      - name: permolat-trust-nz
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Permolat Trust
         env:
           GH_TOKEN: ${{ secrets.PERMOLAT_TRUST_MIRROR_TOKEN }}
         run: |
-          git clone --mirror \
-            https://x-access-token:${GH_TOKEN}@github.com/petergwilson/permomap.git \
-            repo.git
+          git remote add trust \
+            "https://x-access-token:${GH_TOKEN}@github.com/Permolat-Trust-NZ/permomap.git"
 
-          cd repo.git
-
-          git push trust main \
-            https://x-access-token:${GH_TOKEN}@github.com/Permolat-Trust-NZ/permomap.git
+          git push trust main
+          git push trust --tags
